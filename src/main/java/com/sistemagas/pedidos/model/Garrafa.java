@@ -1,22 +1,57 @@
 package com.sistemagas.pedidos.model;
 
 import com.sistemagas.pedidos.enums.TipoGarrafa;
+import jakarta.persistence.*;
+import lombok.*;
 
 import java.math.BigDecimal;
 
-/**
- * Interfaz del modelo Garrafa. Dev 1 (pedidos) la define con los metodos que necesita.
- * Dev 2 (catalog) la implementa con su entidad JPA real.
- */
-public interface Garrafa {
+@Entity
+@Table(name = "garrafas")
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+public class Garrafa implements GarrafaModel {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-    Long getId();
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, unique = true)
+    private TipoGarrafa tipo;
 
-    Integer getStockDisponible();
+    @Column(name = "capacidad_kg", nullable = false)
+    private Integer capacidadKg;
 
-    void setStockDisponible(Integer stockDisponible);
+    @Column(nullable = false, precision = 10, scale = 2)
+    private BigDecimal precio;
 
-    BigDecimal getPrecio();
+    @Column(name = "stock_disponible", nullable = false)
+    private Integer stockDisponible;
 
-    TipoGarrafa getTipo();
+    @Column(nullable = false)
+    private Boolean activo;
+
+    @Override
+    public Long getId() {
+        return id;
+    }
+
+    @Override
+    public Integer getStockDisponible() {
+        return stockDisponible;
+    }
+
+    @Override
+    public void setStockDisponible(Integer stockDisponible) {
+        this.stockDisponible = stockDisponible;
+    }
+
+    @Override
+    public BigDecimal getPrecio() {
+        return precio;
+    }
+
+    @Override
+    public TipoGarrafa getTipo() {
+        return tipo;
+    }
 }

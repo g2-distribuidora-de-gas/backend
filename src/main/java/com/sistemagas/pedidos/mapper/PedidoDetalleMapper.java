@@ -2,7 +2,7 @@ package com.sistemagas.pedidos.mapper;
 
 import com.sistemagas.pedidos.dto.response.PedidoDetalleResponse;
 import com.sistemagas.pedidos.enums.TipoGarrafa;
-import com.sistemagas.pedidos.model.Garrafa;
+import com.sistemagas.pedidos.model.GarrafaModel;
 import com.sistemagas.pedidos.model.PedidoDetalle;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -14,7 +14,7 @@ public interface PedidoDetalleMapper {
     @Mapping(target = "garrafaTipo", ignore = true)
     PedidoDetalleResponse toResponse(PedidoDetalle detalle);
 
-    default void fillGarrafaTipo(PedidoDetalleResponse response, Garrafa garrafa) {
+    default void fillGarrafaTipo(PedidoDetalleResponse response, GarrafaModel garrafa) {
         if (garrafa != null) {
             TipoGarrafa tipo = garrafa.getTipo();
             if (tipo != null) {

@@ -6,10 +6,10 @@ import com.sistemagas.pedidos.dto.request.SincronizacionRequest;
 import com.sistemagas.pedidos.dto.response.SincronizacionResponse;
 import com.sistemagas.pedidos.enums.EstadoPedido;
 import com.sistemagas.pedidos.mapper.PedidoMapper;
-import com.sistemagas.pedidos.model.Garrafa;
+import com.sistemagas.pedidos.model.GarrafaModel;
 import com.sistemagas.pedidos.model.Pedido;
 import com.sistemagas.pedidos.model.PedidoDetalle;
-import com.sistemagas.pedidos.model.Usuario;
+import com.sistemagas.pedidos.model.UsuarioModel;
 import com.sistemagas.pedidos.repository.PedidoRepository;
 import com.sistemagas.pedidos.repository.port.GarrafaRepositoryPort;
 import com.sistemagas.pedidos.repository.port.UsuarioRepositoryPort;
@@ -107,16 +107,16 @@ public class SincronizacionServiceImpl implements SincronizacionService {
             return;
         }
 
-        Usuario usuario = usuarioRepositoryPort.findById(request.getUsuarioId()).orElse(null);
+        UsuarioModel usuario = usuarioRepositoryPort.findById(request.getUsuarioId()).orElse(null);
         if (usuario == null) {
             response.getErrores().add(SincronizacionResponse.ErrorItem.builder()
                     .uuidOffline(request.getUuidOffline())
-                    .motivo("Usuario no encontrado: id=" + request.getUsuarioId())
+                    .motivo("UsuarioModel no encontrado: id=" + request.getUsuarioId())
                     .build());
             return;
         }
 
-        Map<Long, Garrafa> garrafas;
+        Map<Long, GarrafaModel> garrafas;
         try {
             garrafas = garrafaStockHelper.cargarYValidar(request.getDetalles());
         } catch (Exception ex) {
@@ -133,7 +133,7 @@ public class SincronizacionServiceImpl implements SincronizacionService {
         pedido.setEstado(EstadoPedido.PENDIENTE);
 
         for (PedidoDetalleRequest det : request.getDetalles()) {
-            Garrafa garrafa = garrafas.get(det.getGarrafaId());
+            GarrafaModel garrafa = garrafas.get(det.getGarrafaId());
             BigDecimal precioUnitario = garrafa.getPrecio();
             BigDecimal subtotal = precioUnitario.multiply(BigDecimal.valueOf(det.getCantidad()));
 

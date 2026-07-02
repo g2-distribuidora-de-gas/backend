@@ -1,14 +1,46 @@
 package com.sistemagas.pedidos.model;
 
-/**
- * Interfaz del modelo Usuario. Dev 1 (pedidos) la define con los metodos que necesita.
- * Dev 2 (catalog) la implementa con su entidad JPA real.
- */
-public interface Usuario {
+import jakarta.persistence.*;
+import lombok.*;
 
-    Long getId();
+@Entity
+@Table(name = "usuarios")
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+public class Usuario implements UsuarioModel {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-    String getNombre();
+    @Column(nullable = false, length = 100)
+    private String nombre;
 
-    String getApellido();
+    @Column(nullable = false, length = 100)
+    private String apellido;
+
+    @Column(nullable = false, unique = true, length = 20)
+    private String dni;
+
+    @Column(length = 30)
+    private String telefono;
+
+    @Column(length = 300)
+    private String direccion;
+
+    @Column(nullable = false)
+    private Boolean activo;
+
+    @Override
+    public Long getId() {
+        return id;
+    }
+
+    @Override
+    public String getNombre() {
+        return nombre;
+    }
+
+    @Override
+    public String getApellido() {
+        return apellido;
+    }
 }
