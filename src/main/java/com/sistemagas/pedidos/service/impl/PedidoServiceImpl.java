@@ -9,10 +9,10 @@ import com.sistemagas.pedidos.exception.BusinessException;
 import com.sistemagas.pedidos.exception.ResourceNotFoundException;
 import com.sistemagas.pedidos.mapper.PedidoDetalleMapper;
 import com.sistemagas.pedidos.mapper.PedidoMapper;
-import com.sistemagas.pedidos.model.Garrafa;
+import com.sistemagas.pedidos.model.GarrafaModel;
 import com.sistemagas.pedidos.model.Pedido;
 import com.sistemagas.pedidos.model.PedidoDetalle;
-import com.sistemagas.pedidos.model.Usuario;
+import com.sistemagas.pedidos.model.UsuarioModel;
 import com.sistemagas.pedidos.repository.PedidoRepository;
 import com.sistemagas.pedidos.repository.port.GarrafaRepositoryPort;
 import com.sistemagas.pedidos.repository.port.UsuarioRepositoryPort;
@@ -48,17 +48,17 @@ public class PedidoServiceImpl implements PedidoService {
             throw new BusinessException(Constantes.MSG_PEDIDO_DUPLICADO);
         }
 
-        Usuario usuario = usuarioRepositoryPort.findById(request.getUsuarioId())
+        UsuarioModel usuario = usuarioRepositoryPort.findById(request.getUsuarioId())
                 .orElseThrow(() -> new ResourceNotFoundException(Constantes.MSG_USUARIO_NO_ENCONTRADO));
 
         Pedido pedido = pedidoMapper.toEntity(request);
         pedido.setUsuarioId(usuario.getId());
         pedido.setEstado(EstadoPedido.PENDIENTE);
 
-        Map<Long, Garrafa> garrafas = garrafaStockHelper.cargarYValidar(request.getDetalles());
+        Map<Long, GarrafaModel> garrafas = garrafaStockHelper.cargarYValidar(request.getDetalles());
 
         for (PedidoDetalleRequest det : request.getDetalles()) {
-            Garrafa garrafa = garrafas.get(det.getGarrafaId());
+            GarrafaModel garrafa = garrafas.get(det.getGarrafaId());
             BigDecimal precioUnitario = garrafa.getPrecio();
             BigDecimal subtotal = precioUnitario.multiply(BigDecimal.valueOf(det.getCantidad()));
 
@@ -88,10 +88,10 @@ public class PedidoServiceImpl implements PedidoService {
         Pedido pedido = pedidoRepository.findByUuidOffline(uuidOffline)
                 .orElseThrow(() -> new ResourceNotFoundException(Constantes.MSG_PEDIDO_NO_ENCONTRADO));
 
-        Usuario usuario = usuarioRepositoryPort.findById(pedido.getUsuarioId())
+        UsuarioModel usuario = usuarioRepositoryPort.findById(pedido.getUsuarioId())
                 .orElse(null);
 
-        Map<Long, Garrafa> garrafas = new java.util.HashMap<>();
+        Map<Long, GarrafaModel> garrafas = new java.util.HashMap<>();
         for (PedidoDetalle d : pedido.getDetalles()) {
             garrafaRepositoryPort.findById(d.getGarrafaId()).ifPresent(g -> garrafas.put(g.getId(), g));
         }
@@ -99,7 +99,7 @@ public class PedidoServiceImpl implements PedidoService {
         return buildResponse(pedido, usuario, garrafas);
     }
 
-    private PedidoResponse buildResponse(Pedido pedido, Usuario usuario, Map<Long, Garrafa> garrafas) {
+    private PedidoResponse buildResponse(Pedido pedido, UsuarioModel usuario, Map<Long, GarrafaModel> garrafas) {
         PedidoResponse response = pedidoMapper.toResponse(pedido);
         pedidoMapper.fillUsuarioNombreCompleto(response, pedido, usuario);
 

@@ -3,7 +3,7 @@ package com.sistemagas.pedidos.mapper;
 import com.sistemagas.pedidos.dto.request.PedidoRequest;
 import com.sistemagas.pedidos.dto.response.PedidoResponse;
 import com.sistemagas.pedidos.model.Pedido;
-import com.sistemagas.pedidos.model.Usuario;
+import com.sistemagas.pedidos.model.UsuarioModel;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
@@ -21,7 +21,7 @@ public interface PedidoMapper {
     @Mapping(target = "detalles", ignore = true)
     Pedido toEntity(PedidoRequest request);
 
-    default void fillUsuarioNombreCompleto(PedidoResponse response, Pedido pedido, Usuario usuario) {
+    default void fillUsuarioNombreCompleto(PedidoResponse response, Pedido pedido, UsuarioModel usuario) {
         if (usuario != null) {
             response.setUsuarioNombreCompleto(usuario.getNombre() + " " + usuario.getApellido());
         }

@@ -1,7 +1,7 @@
 spring:
   datasource:
-    url: jdbc:postgresql://db.${SUPABASE_PROJECT_REF}.supabase.co:5432/postgres?sslmode=require
-    username: postgres
+    url: ${SUPABASE_DB_URL:jdbc:postgresql://db.${SUPABASE_PROJECT_REF}.supabase.co:5432/postgres?sslmode=require}
+    username: postgres.${SUPABASE_PROJECT_REF}
     password: ${SUPABASE_DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
     hikari:
@@ -12,11 +12,12 @@ spring:
       max-lifetime: 1800000
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
     show-sql: false
   flyway:
-    enabled: true
-    baseline-on-migrate: false
+    enabled: false
+    baseline-on-migrate: true
+    baseline-version: 3
     locations: classpath:db/migration
 
 logging:

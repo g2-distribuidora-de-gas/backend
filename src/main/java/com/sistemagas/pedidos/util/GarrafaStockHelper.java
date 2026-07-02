@@ -3,7 +3,7 @@ package com.sistemagas.pedidos.util;
 import com.sistemagas.pedidos.dto.request.PedidoDetalleRequest;
 import com.sistemagas.pedidos.exception.BusinessException;
 import com.sistemagas.pedidos.exception.ResourceNotFoundException;
-import com.sistemagas.pedidos.model.Garrafa;
+import com.sistemagas.pedidos.model.GarrafaModel;
 import com.sistemagas.pedidos.repository.port.GarrafaRepositoryPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -18,10 +18,10 @@ public class GarrafaStockHelper {
 
     private final GarrafaRepositoryPort garrafaRepositoryPort;
 
-    public Map<Long, Garrafa> cargarYValidar(List<PedidoDetalleRequest> detalles) {
-        Map<Long, Garrafa> mapa = new HashMap<>();
+    public Map<Long, GarrafaModel> cargarYValidar(List<PedidoDetalleRequest> detalles) {
+        Map<Long, GarrafaModel> mapa = new HashMap<>();
         for (PedidoDetalleRequest d : detalles) {
-            Garrafa g = mapa.computeIfAbsent(d.getGarrafaId(), id ->
+            GarrafaModel g = mapa.computeIfAbsent(d.getGarrafaId(), id ->
                     garrafaRepositoryPort.findById(id)
                             .orElseThrow(() -> new ResourceNotFoundException(
                                     Constantes.MSG_GARRAFA_NO_ENCONTRADA + ": id=" + id)));
