@@ -14,4 +14,6 @@ public interface PedidoService {
     PedidoResponse obtenerPorId(Long id);
 
     List<PedidoResponse> listarTodos();
+
+    void actualizarEstado(Long id, com.sistemagas.pedidos.enums.EstadoPedido estado);
 }

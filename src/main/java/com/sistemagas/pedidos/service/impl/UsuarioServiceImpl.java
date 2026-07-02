@@ -3,6 +3,7 @@ package com.sistemagas.pedidos.service.impl;
 import com.sistemagas.pedidos.dto.request.UsuarioRequest;
 import com.sistemagas.pedidos.dto.response.UsuarioResponse;
 import com.sistemagas.pedidos.exception.BusinessException;
+import com.sistemagas.pedidos.exception.ResourceNotFoundException;
 import com.sistemagas.pedidos.mapper.UsuarioMapper;
 import com.sistemagas.pedidos.model.Usuario;
 import com.sistemagas.pedidos.repository.UsuarioRepository;
@@ -52,5 +53,15 @@ public class UsuarioServiceImpl implements UsuarioService {
         log.info("Usuario creado: id={}, dni={}", savedUsuario.getId(), savedUsuario.getDni());
 
         return usuarioMapper.toResponse(savedUsuario);
+    }
+
+    @Override
+    @Transactional
+    public void eliminar(Long id) {
+        Usuario usuario = usuarioRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(Constantes.MSG_USUARIO_NO_ENCONTRADO));
+        usuario.setActivo(false);
+        usuarioRepository.save(usuario);
+        log.info("Usuario desactivado: id={}", id);
     }
 }

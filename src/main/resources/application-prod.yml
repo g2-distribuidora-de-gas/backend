@@ -19,6 +19,7 @@ spring:
       data-source-properties:
         prepareThreshold: 0
   jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
       ddl-auto: validate
     show-sql: false
@@ -30,8 +31,6 @@ spring:
           batch_size: 30
         order_inserts: true
         order_updates: true
-        connection:
-          provider_disables_autocommit: true
         # Necesario con Supavisor transaction mode para evitar cache de metadata
         temp:
           use_jdbc_metadata_defaults: false

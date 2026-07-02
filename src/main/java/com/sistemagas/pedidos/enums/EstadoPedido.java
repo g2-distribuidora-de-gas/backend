@@ -4,6 +4,5 @@ public enum EstadoPedido {
     PENDIENTE,
     EN_PROCESO,
     ENTREGADO,
-    CANCELADO,
-    SINCRONIZADO
+    CANCELADO
 }

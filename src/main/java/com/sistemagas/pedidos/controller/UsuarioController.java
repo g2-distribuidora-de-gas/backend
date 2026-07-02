@@ -36,4 +36,11 @@ public class UsuarioController {
         UsuarioResponse response = usuarioService.crear(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(response));
     }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Desactivar usuario", description = "Desactiva lógicamente un usuario")
+    public ResponseEntity<ApiResponse<Void>> eliminar(@PathVariable Long id) {
+        usuarioService.eliminar(id);
+        return ResponseEntity.ok(ApiResponse.ok(null, "Usuario desactivado exitosamente"));
+    }
 }

@@ -51,6 +51,15 @@ public class PedidoController {
         return ResponseEntity.ok(ApiResponse.ok(pedidoService.obtenerPorId(id)));
     }
 
+    @PatchMapping("/{id}/estado")
+    @Operation(summary = "Actualizar el estado de un pedido")
+    public ResponseEntity<ApiResponse<Void>> actualizarEstado(
+            @Parameter(description = "ID del pedido", example = "1") @PathVariable Long id,
+            @RequestParam("estado") com.sistemagas.pedidos.enums.EstadoPedido estado) {
+        pedidoService.actualizarEstado(id, estado);
+        return ResponseEntity.ok(ApiResponse.ok(null, "Estado actualizado"));
+    }
+
     @GetMapping("/uuid/{uuidOffline}")
     @Operation(summary = "Obtener un pedido por su UUID offline")
     public ResponseEntity<ApiResponse<PedidoResponse>> obtenerPorUuidOffline(

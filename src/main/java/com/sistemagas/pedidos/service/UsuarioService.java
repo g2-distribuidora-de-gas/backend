@@ -8,4 +8,5 @@ import java.util.List;
 public interface UsuarioService {
     List<UsuarioResponse> listarTodos();
     UsuarioResponse crear(UsuarioRequest request);
+    void eliminar(Long id);
 }

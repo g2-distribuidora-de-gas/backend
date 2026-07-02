@@ -127,6 +127,15 @@ public class PedidoServiceImpl implements PedidoService {
                 .toList();
     }
 
+    @Override
+    @Transactional
+    public void actualizarEstado(Long id, EstadoPedido estado) {
+        Pedido pedido = pedidoRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(Constantes.MSG_PEDIDO_NO_ENCONTRADO));
+        pedido.setEstado(estado);
+        pedidoRepository.save(pedido);
+    }
+
     private PedidoResponse buildResponseFor(Pedido pedido) {
         UsuarioModel usuario = usuarioRepositoryPort.findById(pedido.getUsuarioId()).orElse(null);
 
