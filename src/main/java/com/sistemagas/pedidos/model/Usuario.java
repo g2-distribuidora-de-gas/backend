@@ -5,7 +5,11 @@ import lombok.*;
 
 @Entity
 @Table(name = "usuarios")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Usuario implements UsuarioModel {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -28,19 +32,4 @@ public class Usuario implements UsuarioModel {
 
     @Column(nullable = false)
     private Boolean activo;
-
-    @Override
-    public Long getId() {
-        return id;
-    }
-
-    @Override
-    public String getNombre() {
-        return nombre;
-    }
-
-    @Override
-    public String getApellido() {
-        return apellido;
-    }
 }

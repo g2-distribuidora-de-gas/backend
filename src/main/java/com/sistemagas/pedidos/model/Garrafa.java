@@ -8,7 +8,11 @@ import java.math.BigDecimal;
 
 @Entity
 @Table(name = "garrafas")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Garrafa implements GarrafaModel {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -29,29 +33,4 @@ public class Garrafa implements GarrafaModel {
 
     @Column(nullable = false)
     private Boolean activo;
-
-    @Override
-    public Long getId() {
-        return id;
-    }
-
-    @Override
-    public Integer getStockDisponible() {
-        return stockDisponible;
-    }
-
-    @Override
-    public void setStockDisponible(Integer stockDisponible) {
-        this.stockDisponible = stockDisponible;
-    }
-
-    @Override
-    public BigDecimal getPrecio() {
-        return precio;
-    }
-
-    @Override
-    public TipoGarrafa getTipo() {
-        return tipo;
-    }
 }

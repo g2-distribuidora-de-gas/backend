@@ -21,10 +21,16 @@ import com.sistemagas.pedidos.util.Constantes;
 import com.sistemagas.pedidos.util.GarrafaStockHelper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.dao.QueryTimeoutException;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -59,6 +65,9 @@ public class PedidoServiceImpl implements PedidoService {
 
         for (PedidoDetalleRequest det : request.getDetalles()) {
             GarrafaModel garrafa = garrafas.get(det.getGarrafaId());
+            if (garrafa == null) {
+                throw new ResourceNotFoundException(Constantes.MSG_GARRAFA_NO_ENCONTRADA + ": id=" + det.getGarrafaId());
+            }
             BigDecimal precioUnitario = garrafa.getPrecio();
             BigDecimal subtotal = precioUnitario.multiply(BigDecimal.valueOf(det.getCantidad()));
 
@@ -84,14 +93,44 @@ public class PedidoServiceImpl implements PedidoService {
 
     @Override
     @Transactional(readOnly = true)
+    @Retryable(
+            retryFor = {DataAccessResourceFailureException.class, QueryTimeoutException.class},
+            maxAttempts = 3,
+            backoff = @Backoff(delay = 200, multiplier = 2))
     public PedidoResponse obtenerPorUuidOffline(String uuidOffline) {
         Pedido pedido = pedidoRepository.findByUuidOffline(uuidOffline)
                 .orElseThrow(() -> new ResourceNotFoundException(Constantes.MSG_PEDIDO_NO_ENCONTRADO));
+        return buildResponseFor(pedido);
+    }
 
-        UsuarioModel usuario = usuarioRepositoryPort.findById(pedido.getUsuarioId())
-                .orElse(null);
+    @Override
+    @Transactional(readOnly = true)
+    @Retryable(
+            retryFor = {DataAccessResourceFailureException.class, QueryTimeoutException.class},
+            maxAttempts = 3,
+            backoff = @Backoff(delay = 200, multiplier = 2))
+    public PedidoResponse obtenerPorId(Long id) {
+        Pedido pedido = pedidoRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(Constantes.MSG_PEDIDO_NO_ENCONTRADO));
+        return buildResponseFor(pedido);
+    }
 
-        Map<Long, GarrafaModel> garrafas = new java.util.HashMap<>();
+    @Override
+    @Transactional(readOnly = true)
+    @Retryable(
+            retryFor = {DataAccessResourceFailureException.class, QueryTimeoutException.class},
+            maxAttempts = 3,
+            backoff = @Backoff(delay = 200, multiplier = 2))
+    public List<PedidoResponse> listarTodos() {
+        return pedidoRepository.findAll().stream()
+                .map(this::buildResponseFor)
+                .toList();
+    }
+
+    private PedidoResponse buildResponseFor(Pedido pedido) {
+        UsuarioModel usuario = usuarioRepositoryPort.findById(pedido.getUsuarioId()).orElse(null);
+
+        Map<Long, GarrafaModel> garrafas = new HashMap<>();
         for (PedidoDetalle d : pedido.getDetalles()) {
             garrafaRepositoryPort.findById(d.getGarrafaId()).ifPresent(g -> garrafas.put(g.getId(), g));
         }
@@ -103,7 +142,7 @@ public class PedidoServiceImpl implements PedidoService {
         PedidoResponse response = pedidoMapper.toResponse(pedido);
         pedidoMapper.fillUsuarioNombreCompleto(response, pedido, usuario);
 
-        List<PedidoDetalleResponse> detalles = new java.util.ArrayList<>();
+        List<PedidoDetalleResponse> detalles = new ArrayList<>();
         for (PedidoDetalle d : pedido.getDetalles()) {
             PedidoDetalleResponse detResp = pedidoDetalleMapper.toResponse(d);
             pedidoDetalleMapper.fillGarrafaTipo(detResp, garrafas.get(d.getGarrafaId()));

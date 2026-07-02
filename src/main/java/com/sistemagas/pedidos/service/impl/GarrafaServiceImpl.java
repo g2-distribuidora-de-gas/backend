@@ -9,12 +9,18 @@ import com.sistemagas.pedidos.repository.GarrafaRepository;
 import com.sistemagas.pedidos.service.GarrafaService;
 import com.sistemagas.pedidos.util.Constantes;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.dao.QueryTimeoutException;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class GarrafaServiceImpl implements GarrafaService {
@@ -24,6 +30,10 @@ public class GarrafaServiceImpl implements GarrafaService {
 
     @Override
     @Transactional(readOnly = true)
+    @Retryable(
+            retryFor = {DataAccessResourceFailureException.class, QueryTimeoutException.class},
+            maxAttempts = 3,
+            backoff = @Backoff(delay = 200, multiplier = 2))
     public List<GarrafaResponse> listarTodas() {
         return garrafaRepository.findAll().stream()
                 .map(garrafaMapper::toResponse)
@@ -39,7 +49,9 @@ public class GarrafaServiceImpl implements GarrafaService {
 
         Garrafa garrafa = garrafaMapper.toEntity(request);
         Garrafa savedGarrafa = garrafaRepository.save(garrafa);
-        
+        log.info("Garrafa creada: id={}, tipo={}, stock={}",
+                savedGarrafa.getId(), savedGarrafa.getTipo(), savedGarrafa.getStockDisponible());
+
         return garrafaMapper.toResponse(savedGarrafa);
     }
 }

@@ -16,6 +16,6 @@ public class UsuarioRepositoryAdapter implements UsuarioRepositoryPort {
 
     @Override
     public Optional<UsuarioModel> findById(Long id) {
-        return repo.findById(id).map(u -> u);
+        return repo.findById(id).map(u -> (UsuarioModel) u);
     }
 }

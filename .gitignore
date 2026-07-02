@@ -36,6 +36,9 @@ application-*.yml
 !application-dev.yml
 !application-prod.yml
 
+# Spring Boot PID files
+*.pid
+
 # H2 / Local DB
 *.mv.db
 *.trace.db

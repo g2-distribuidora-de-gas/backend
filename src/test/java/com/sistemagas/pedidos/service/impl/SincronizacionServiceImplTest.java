@@ -75,12 +75,12 @@ class SincronizacionServiceImplTest {
 
         garrafaStockHelper = new GarrafaStockHelper(garrafaRepositoryPort);
 
-        service = new SincronizacionServiceImpl(
-                pedidoRepository,
-                usuarioRepositoryPort,
-                garrafaRepositoryPort,
-                pedidoMapper,
-                garrafaStockHelper);
+        SincronizacionPedidoSaver pedidoSaver = new SincronizacionPedidoSaver(
+                pedidoRepository, garrafaRepositoryPort, pedidoMapper);
+        SincronizacionPedidoProcessor pedidoProcessor = new SincronizacionPedidoProcessor(
+                usuarioRepositoryPort, garrafaStockHelper, pedidoSaver);
+
+        service = new SincronizacionServiceImpl(pedidoRepository, pedidoProcessor);
     }
 
     @Test
@@ -98,8 +98,8 @@ class SincronizacionServiceImplTest {
 
         when(pedidoRepository.findByUuidOfflineIn(anyList())).thenReturn(List.of());
         when(usuarioRepositoryPort.findById(1L)).thenReturn(Optional.of(usuario));
-        when(garrafaRepositoryPort.findById(1L)).thenReturn(Optional.of(garrafa10));
-        when(garrafaRepositoryPort.findById(2L)).thenReturn(Optional.of(garrafa15));
+        when(garrafaRepositoryPort.findByIdForUpdate(1L)).thenReturn(Optional.of(garrafa10));
+        when(garrafaRepositoryPort.findByIdForUpdate(2L)).thenReturn(Optional.of(garrafa15));
         when(garrafaRepositoryPort.save(any(Garrafa.class))).thenAnswer(inv -> inv.getArgument(0));
         when(pedidoRepository.save(any(Pedido.class))).thenAnswer(inv -> {
             Pedido p = inv.getArgument(0);
@@ -199,7 +199,7 @@ class SincronizacionServiceImplTest {
 
         when(pedidoRepository.findByUuidOfflineIn(anyList())).thenReturn(List.of(existente));
         when(usuarioRepositoryPort.findById(1L)).thenReturn(Optional.of(usuario));
-        when(garrafaRepositoryPort.findById(1L)).thenReturn(Optional.of(garrafa10));
+        when(garrafaRepositoryPort.findByIdForUpdate(1L)).thenReturn(Optional.of(garrafa10));
         when(garrafaRepositoryPort.save(any(Garrafa.class))).thenAnswer(inv -> inv.getArgument(0));
         when(pedidoRepository.save(any(Pedido.class))).thenAnswer(inv -> {
             Pedido p = inv.getArgument(0);
@@ -239,7 +239,7 @@ class SincronizacionServiceImplTest {
 
         when(pedidoRepository.findByUuidOfflineIn(anyList())).thenReturn(List.of());
         when(usuarioRepositoryPort.findById(1L)).thenReturn(Optional.of(usuario));
-        when(garrafaRepositoryPort.findById(1L)).thenReturn(Optional.of(garrafa10));
+        when(garrafaRepositoryPort.findByIdForUpdate(1L)).thenReturn(Optional.of(garrafa10));
         when(garrafaRepositoryPort.save(any(Garrafa.class))).thenAnswer(inv -> inv.getArgument(0));
 
         when(pedidoRepository.save(any(Pedido.class)))
@@ -262,7 +262,7 @@ class SincronizacionServiceImplTest {
     @Test
     @DisplayName("GarrafaStockHelper: garrafa no encontrada lanza ResourceNotFoundException")
     void helper_garrafaNoExiste_lanza404() {
-        when(garrafaRepositoryPort.findById(99L)).thenReturn(Optional.empty());
+        when(garrafaRepositoryPort.findByIdForUpdate(99L)).thenReturn(Optional.empty());
 
         org.assertj.core.api.Assertions.assertThatThrownBy(() ->
                         garrafaStockHelper.cargarYValidar(List.of(
@@ -274,7 +274,7 @@ class SincronizacionServiceImplTest {
     @Test
     @DisplayName("GarrafaStockHelper: stock insuficiente lanza BusinessException")
     void helper_stockInsuficiente_lanza400() {
-        when(garrafaRepositoryPort.findById(1L)).thenReturn(Optional.of(garrafa10));
+        when(garrafaRepositoryPort.findByIdForUpdate(1L)).thenReturn(Optional.of(garrafa10));
         garrafa10.setStockDisponible(1);
 
         org.assertj.core.api.Assertions.assertThatThrownBy(() ->

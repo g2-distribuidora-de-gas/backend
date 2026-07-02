@@ -1,27 +1,64 @@
 spring:
   datasource:
-    url: ${SUPABASE_DB_URL:jdbc:postgresql://db.${SUPABASE_PROJECT_REF}.supabase.co:5432/postgres?sslmode=require}
-    username: postgres.${SUPABASE_PROJECT_REF}
-    password: ${SUPABASE_DB_PASSWORD}
+    url: ${SUPABASE_DB_URL:jdbc:postgresql://db.${SUPABASE_PROJECT_REF:undefined}.supabase.co:5432/postgres?sslmode=require}
+    username: ${SUPABASE_DB_USER:postgres.${SUPABASE_PROJECT_REF:undefined}}
+    password: ${SUPABASE_PASS:}
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: 5
-      minimum-idle: 2
-      connection-timeout: 30000
-      idle-timeout: 600000
-      max-lifetime: 1800000
+      maximum-pool-size: 15
+      minimum-idle: 3
+      connection-timeout: 5000
+      validation-timeout: 3000
+      idle-timeout: 300000
+      max-lifetime: 1200000
+      keepalive-time: 60000
+      leak-detection-threshold: 30000
+      connection-test-query: SELECT 1
+      pool-name: SupabasePool
+      # Supavisor transaction mode: limita el num de prepared statements por sesion
+      data-source-properties:
+        prepareThreshold: 0
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+          batch_size: 30
+        order_inserts: true
+        order_updates: true
+        connection:
+          provider_disables_autocommit: true
+        # Necesario con Supavisor transaction mode para evitar cache de metadata
+        temp:
+          use_jdbc_metadata_defaults: false
   flyway:
-    enabled: false
+    enabled: true
     baseline-on-migrate: true
     baseline-version: 3
     locations: classpath:db/migration
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+      show-components: always
+  health:
+    db:
+      enabled: true
+    diskspace:
+      enabled: true
 
 logging:
   level:
     root: INFO
     com.sistemagas.pedidos: INFO
     org.hibernate.SQL: WARN
+    com.zaxxer.hikari: INFO

@@ -22,13 +22,17 @@ public class GarrafaStockHelper {
         Map<Long, GarrafaModel> mapa = new HashMap<>();
         for (PedidoDetalleRequest d : detalles) {
             GarrafaModel g = mapa.computeIfAbsent(d.getGarrafaId(), id ->
-                    garrafaRepositoryPort.findById(id)
+                    garrafaRepositoryPort.findByIdForUpdate(id)
                             .orElseThrow(() -> new ResourceNotFoundException(
                                     Constantes.MSG_GARRAFA_NO_ENCONTRADA + ": id=" + id)));
-            if (g.getStockDisponible() < d.getCantidad()) {
+            Integer stockDisponible = g.getStockDisponible();
+            Integer cantidad = d.getCantidad();
+            if (stockDisponible == null || cantidad == null || stockDisponible < cantidad) {
                 throw new BusinessException(
                         String.format("Stock insuficiente para garrafa id=%d. Disponible: %d, Solicitado: %d",
-                                d.getGarrafaId(), g.getStockDisponible(), d.getCantidad()));
+                                d.getGarrafaId(),
+                                stockDisponible == null ? 0 : stockDisponible,
+                                cantidad == null ? 0 : cantidad));
             }
         }
         return mapa;

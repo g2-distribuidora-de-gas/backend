@@ -56,11 +56,76 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
+    @ExceptionHandler(jakarta.validation.ConstraintViolationException.class)
+    public ResponseEntity<ApiResponse<Map<String, String>>> handleConstraintViolation(
+            jakarta.validation.ConstraintViolationException ex) {
+
+        Map<String, String> errores = new HashMap<>();
+        ex.getConstraintViolations().forEach(violation -> {
+            String path = violation.getPropertyPath() != null ? violation.getPropertyPath().toString() : "valor";
+            errores.put(path, violation.getMessage());
+        });
+
+        ApiResponse<Map<String, String>> response = ApiResponse.<Map<String, String>>builder()
+                .exito(false)
+                .mensaje("Error de validacion")
+                .data(errores)
+                .timestamp(Instant.now())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
     @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
     public ResponseEntity<ApiResponse<Void>> handleMessageNotReadable(org.springframework.http.converter.HttpMessageNotReadableException ex) {
         log.warn("Error de formato en el request: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error("El formato de los datos enviados es incorrecto o contiene valores inválidos."));
+    }
+
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleDataIntegrityViolation(
+            org.springframework.dao.DataIntegrityViolationException ex) {
+        log.warn("Violacion de integridad de datos: {}", ex.getMostSpecificCause().getMessage());
+        String message = "No se puede completar la operacion por una restriccion de integridad de datos.";
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(message));
+    }
+
+    @ExceptionHandler(org.springframework.dao.OptimisticLockingFailureException.class)
+    public ResponseEntity<ApiResponse<Void>> handleOptimisticLockingFailure(
+            org.springframework.dao.OptimisticLockingFailureException ex) {
+        log.warn("Conflicto de concurrencia: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.error("El recurso fue modificado por otra operacion. Intente nuevamente."));
+    }
+
+    @ExceptionHandler(org.springframework.dao.DataAccessResourceFailureException.class)
+    public ResponseEntity<ApiResponse<Void>> handleDataAccessResourceFailure(
+            org.springframework.dao.DataAccessResourceFailureException ex) {
+        log.error("Fallo de conexion con la base de datos: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(ApiResponse.error(
+                        "El servicio de base de datos no esta disponible en este momento. " +
+                                "Por favor reintente en unos instantes."));
+    }
+
+    @ExceptionHandler(org.springframework.dao.QueryTimeoutException.class)
+    public ResponseEntity<ApiResponse<Void>> handleQueryTimeout(
+            org.springframework.dao.QueryTimeoutException ex) {
+        log.error("Timeout de consulta a la base de datos: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(ApiResponse.error(
+                        "La base de datos no respondio a tiempo. Por favor reintente."));
+    }
+
+    @ExceptionHandler(org.springframework.dao.CannotAcquireLockException.class)
+    public ResponseEntity<ApiResponse<Void>> handleCannotAcquireLock(
+            org.springframework.dao.CannotAcquireLockException ex) {
+        log.warn("No se pudo adquirir lock en la base de datos: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(ApiResponse.error(
+                        "El sistema esta procesando muchas operaciones concurrentes. " +
+                                "Por favor reintente en unos segundos."));
     }
 
     @ExceptionHandler(Exception.class)

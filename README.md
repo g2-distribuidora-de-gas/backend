@@ -69,25 +69,74 @@ La aplicacion arrancara en `http://localhost:8080` con perfil `dev` por defecto.
 
 ### 2. Configurar variables de entorno
 
-Copiar `.env.example` a `.env` y completar:
+Editar el archivo `.env` en la raiz del proyecto y completar:
 
 ```bash
-SUPABASE_PROJECT_REF=abcdefghijkl
-SUPABASE_DB_PASSWORD=tu-password-real
+SUPABASE_PROJECT_REF=tu-project-ref
+SUPABASE_PASS=tu-password
+SUPABASE_DB_USER=postgres.tu-project-ref
+SUPABASE_DB_URL=jdbc:postgresql://<host>:5432/postgres?sslmode=require&prepareThreshold=0
 SPRING_PROFILES_ACTIVE=prod
 ```
 
+**Variables requeridas:**
+
+| Variable | Ejemplo | Descripcion |
+|----------|---------|-------------|
+| `SUPABASE_PROJECT_REF` | `mqklsftjyesuiazsmuin` | ID del proyecto en Supabase |
+| `SUPABASE_PASS` | (la definida al crear el proyecto) | Password de la DB |
+| `SUPABASE_DB_USER` | `postgres.mqklsftjyesuiazsmuin` | Usuario completo |
+| `SUPABASE_DB_URL` | `jdbc:postgresql://aws-1-ca-central-1.pooler.supabase.com:5432/postgres?sslmode=require&prepareThreshold=0` | JDBC URL completa |
+
 ### 3. Conexion
 
-El backend se conecta al endpoint **Direct** (puerto 5432) de Supabase:
+El backend se conecta al endpoint **Pooler (Supavisor transaction mode)**. Hay dos opciones:
 
+- **Pooler (recomendado para Supabase nube):** `aws-1-ca-central-1.pooler.supabase.com:5432`
+  - Requiere `prepareThreshold=0` en la URL JDBC
+  - Mejor para conexiones desde la nube
+- **Direct:** `db.<project_ref>.supabase.co:5432`
+  - Conexion directa al PostgreSQL
+
+**Importante:** Supabase requiere SSL (`sslmode=require`). La URL ya lo incluye.
+
+### 4. Primer deploy (reset del esquema)
+
+Si la base de datos ya tiene tablas de un deploy anterior y Flyway choca al arrancar
+(`relation "pedidos" already exists`), ejecutar el script de reset:
+
+**Windows (PowerShell):**
+```powershell
+.\scripts\reset-db.ps1
 ```
-jdbc:postgresql://db.<project_ref>.supabase.co:5432/postgres
+
+**Linux / Mac:**
+```bash
+./scripts/reset-db.sh
 ```
 
-**Importante:** Supabase requiere SSL. La URL ya lo incluye por configuracion.
+**Manual (psql):**
+```bash
+psql "$SUPABASE_DB_URL" -f src/main/resources/db/admin/reset_schema.sql
+```
 
-Flyway ejecutara las migraciones automaticamente al primer arranque.
+> El script de reset BORRA todas las tablas y la tabla `flyway_schema_history`.
+> Solo para setup inicial o para un reset completo. **No usar en produccion con datos reales.**
+
+Una vez ejecutado el reset, arrancar la app y Flyway creara las tablas desde cero:
+
+```bash
+mvn spring-boot:run
+```
+
+Deberia verse en el log:
+```
+Configuracion de Supabase validada correctamente (PROD)
+  Project ref: ...
+  Modo: Supavisor Pooler (transaction mode)
+SupabasePool - Start completed.
+Flyway: Successfully applied 2 migrations
+```
 
 ## Estructura del proyecto
 

@@ -17,14 +17,19 @@ public class GarrafaRepositoryAdapter implements GarrafaRepositoryPort {
 
     @Override
     public Optional<GarrafaModel> findById(Long id) {
-        return repo.findById(id).map(g -> g);
+        return repo.findById(id).map(g -> (GarrafaModel) g);
+    }
+
+    @Override
+    public Optional<GarrafaModel> findByIdForUpdate(Long id) {
+        return repo.findByIdForUpdate(id).map(g -> (GarrafaModel) g);
     }
 
     @Override
     public GarrafaModel save(GarrafaModel garrafa) {
-        if (garrafa instanceof Garrafa) {
-            return repo.save((Garrafa) garrafa);
+        if (!(garrafa instanceof Garrafa)) {
+            throw new IllegalArgumentException("El modelo debe ser una instancia de la entidad Garrafa");
         }
-        throw new IllegalArgumentException("El modelo debe ser una instancia de la entidad Garrafa");
+        return repo.save((Garrafa) garrafa);
     }
 }

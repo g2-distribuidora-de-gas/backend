@@ -3,7 +3,7 @@
 -- NO incluye FKs hacia usuarios/garrafas porque esas tablas las crea Dev 2 en V3.
 -- Dev 2 agregara las FKs en su migracion (ej. ALTER TABLE pedidos ADD CONSTRAINT fk_pedido_usuario FOREIGN KEY...)
 
-CREATE TABLE pedidos (
+CREATE TABLE IF NOT EXISTS pedidos (
     id                BIGSERIAL PRIMARY KEY,
     uuid_offline      VARCHAR(100) UNIQUE,
     usuario_id        BIGINT       NOT NULL,
@@ -13,11 +13,11 @@ CREATE TABLE pedidos (
     updated_at        TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_pedido_uuid_offline ON pedidos(uuid_offline);
-CREATE INDEX idx_pedido_estado       ON pedidos(estado);
-CREATE INDEX idx_pedido_usuario      ON pedidos(usuario_id);
+CREATE INDEX IF NOT EXISTS idx_pedido_uuid_offline ON pedidos(uuid_offline);
+CREATE INDEX IF NOT EXISTS idx_pedido_estado       ON pedidos(estado);
+CREATE INDEX IF NOT EXISTS idx_pedido_usuario      ON pedidos(usuario_id);
 
-CREATE TABLE pedido_detalles (
+CREATE TABLE IF NOT EXISTS pedido_detalles (
     id               BIGSERIAL PRIMARY KEY,
     pedido_id        BIGINT        NOT NULL,
     garrafa_id       BIGINT        NOT NULL,
@@ -33,8 +33,8 @@ CREATE TABLE pedido_detalles (
     CONSTRAINT chk_detalle_subtotal        CHECK (subtotal > 0)
 );
 
-CREATE INDEX idx_detalle_pedido  ON pedido_detalles(pedido_id);
-CREATE INDEX idx_detalle_garrafa ON pedido_detalles(garrafa_id);
+CREATE INDEX IF NOT EXISTS idx_detalle_pedido  ON pedido_detalles(pedido_id);
+CREATE INDEX IF NOT EXISTS idx_detalle_garrafa ON pedido_detalles(garrafa_id);
 
 COMMENT ON TABLE  pedido_detalles IS 'Lineas de cada pedido. Un pedido puede tener N detalles de distintas garrafas';
 COMMENT ON COLUMN pedido_detalles.precio_unitario IS 'Precio snapshot de la garrafa al momento del pedido';

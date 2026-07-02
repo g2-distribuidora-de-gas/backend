@@ -1,30 +1,28 @@
 package com.sistemagas.pedidos.service.impl;
 
-import com.sistemagas.pedidos.dto.request.PedidoDetalleRequest;
 import com.sistemagas.pedidos.dto.request.PedidoRequest;
 import com.sistemagas.pedidos.dto.request.SincronizacionRequest;
+import com.sistemagas.pedidos.dto.response.SincronizacionEstadoResponse;
 import com.sistemagas.pedidos.dto.response.SincronizacionResponse;
-import com.sistemagas.pedidos.enums.EstadoPedido;
-import com.sistemagas.pedidos.mapper.PedidoMapper;
-import com.sistemagas.pedidos.model.GarrafaModel;
 import com.sistemagas.pedidos.model.Pedido;
-import com.sistemagas.pedidos.model.PedidoDetalle;
-import com.sistemagas.pedidos.model.UsuarioModel;
 import com.sistemagas.pedidos.repository.PedidoRepository;
-import com.sistemagas.pedidos.repository.port.GarrafaRepositoryPort;
-import com.sistemagas.pedidos.repository.port.UsuarioRepositoryPort;
 import com.sistemagas.pedidos.service.SincronizacionService;
-import com.sistemagas.pedidos.util.GarrafaStockHelper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.QueryTimeoutException;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -34,13 +32,10 @@ import java.util.stream.Collectors;
 public class SincronizacionServiceImpl implements SincronizacionService {
 
     private final PedidoRepository pedidoRepository;
-    private final UsuarioRepositoryPort usuarioRepositoryPort;
-    private final GarrafaRepositoryPort garrafaRepositoryPort;
-    private final PedidoMapper pedidoMapper;
-    private final GarrafaStockHelper garrafaStockHelper;
+    private final SincronizacionPedidoProcessor pedidoProcessor;
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.NEVER)
     public SincronizacionResponse procesarPedidosOffline(SincronizacionRequest request) {
         log.info("Iniciando sincronizacion offline. Pedidos recibidos: {}", request.getPedidos().size());
 
@@ -60,7 +55,10 @@ public class SincronizacionServiceImpl implements SincronizacionService {
         Map<String, Pedido> existentes = uuids.isEmpty()
                 ? Map.of()
                 : pedidoRepository.findByUuidOfflineIn(uuids).stream()
-                        .collect(Collectors.toMap(Pedido::getUuidOffline, Function.identity()));
+                        .collect(Collectors.toMap(
+                                Pedido::getUuidOffline,
+                                Function.identity(),
+                                (existing, duplicate) -> existing));
 
         for (PedidoRequest pedidoReq : request.getPedidos()) {
             try {
@@ -70,7 +68,7 @@ public class SincronizacionServiceImpl implements SincronizacionService {
                         pedidoReq.getUuidOffline(), ex.getMessage(), ex);
                 response.getErrores().add(SincronizacionResponse.ErrorItem.builder()
                         .uuidOffline(pedidoReq.getUuidOffline())
-                        .motivo("Error inesperado: " + ex.getMessage())
+                        .motivo("Error inesperado al procesar el pedido")
                         .build());
             }
         }
@@ -107,57 +105,66 @@ public class SincronizacionServiceImpl implements SincronizacionService {
             return;
         }
 
-        UsuarioModel usuario = usuarioRepositoryPort.findById(request.getUsuarioId()).orElse(null);
-        if (usuario == null) {
+        try {
+            SincronizacionResponse.Procesado procesado = pedidoProcessor.procesar(request);
+            response.getProcesados().add(procesado);
+        } catch (DataIntegrityViolationException ex) {
+            log.warn("Conflicto de integridad al procesar pedido uuidOffline={}: {}",
+                    request.getUuidOffline(), ex.getMostSpecificCause().getMessage());
             response.getErrores().add(SincronizacionResponse.ErrorItem.builder()
                     .uuidOffline(request.getUuidOffline())
-                    .motivo("UsuarioModel no encontrado: id=" + request.getUsuarioId())
+                    .motivo("Pedido duplicado (uuidOffline ya existe)")
                     .build());
-            return;
-        }
-
-        Map<Long, GarrafaModel> garrafas;
-        try {
-            garrafas = garrafaStockHelper.cargarYValidar(request.getDetalles());
-        } catch (Exception ex) {
+        } catch (IllegalStateException ex) {
             response.getErrores().add(SincronizacionResponse.ErrorItem.builder()
                     .uuidOffline(request.getUuidOffline())
                     .motivo(ex.getMessage())
                     .build());
-            return;
         }
+    }
 
-        Pedido pedido = pedidoMapper.toEntity(request);
-        pedido.setUuidOffline(request.getUuidOffline());
-        pedido.setUsuarioId(usuario.getId());
-        pedido.setEstado(EstadoPedido.PENDIENTE);
+    @Override
+    @Transactional(readOnly = true)
+    @Retryable(
+            retryFor = {DataAccessResourceFailureException.class, QueryTimeoutException.class},
+            maxAttempts = 3,
+            backoff = @Backoff(delay = 200, multiplier = 2))
+    public SincronizacionEstadoResponse consultarEstado(List<String> uuids) {
+        List<String> uuidsLimpios = uuids == null
+                ? List.of()
+                : uuids.stream()
+                        .filter(uuid -> uuid != null && !uuid.isBlank())
+                        .distinct()
+                        .toList();
 
-        for (PedidoDetalleRequest det : request.getDetalles()) {
-            GarrafaModel garrafa = garrafas.get(det.getGarrafaId());
-            BigDecimal precioUnitario = garrafa.getPrecio();
-            BigDecimal subtotal = precioUnitario.multiply(BigDecimal.valueOf(det.getCantidad()));
-
-            PedidoDetalle detalle = PedidoDetalle.builder()
-                    .garrafaId(garrafa.getId())
-                    .cantidad(det.getCantidad())
-                    .precioUnitario(precioUnitario)
-                    .subtotal(subtotal)
+        if (uuidsLimpios.isEmpty()) {
+            return SincronizacionEstadoResponse.builder()
+                    .totalConsultados(0)
+                    .encontrados(0)
+                    .procesados(new ArrayList<>())
+                    .noEncontrados(new ArrayList<>())
                     .build();
-
-            pedido.agregarDetalle(detalle);
-
-            garrafa.setStockDisponible(garrafa.getStockDisponible() - det.getCantidad());
-            garrafaRepositoryPort.save(garrafa);
         }
 
-        Pedido guardado = pedidoRepository.save(pedido);
+        Set<String> existentes = pedidoRepository.findByUuidOfflineIn(uuidsLimpios).stream()
+                .map(Pedido::getUuidOffline)
+                .collect(Collectors.toSet());
 
-        log.info("Pedido sincronizado: id={}, uuidOffline={}, detalles={}",
-                guardado.getId(), guardado.getUuidOffline(), guardado.getDetalles().size());
+        List<String> procesados = new ArrayList<>();
+        List<String> noEncontrados = new ArrayList<>();
+        for (String uuid : uuidsLimpios) {
+            if (existentes.contains(uuid)) {
+                procesados.add(uuid);
+            } else {
+                noEncontrados.add(uuid);
+            }
+        }
 
-        response.getProcesados().add(SincronizacionResponse.Procesado.builder()
-                .uuidOffline(request.getUuidOffline())
-                .pedidoId(guardado.getId())
-                .build());
+        return SincronizacionEstadoResponse.builder()
+                .totalConsultados(uuidsLimpios.size())
+                .encontrados(procesados.size())
+                .procesados(procesados)
+                .noEncontrados(noEncontrados)
+                .build();
     }
 }

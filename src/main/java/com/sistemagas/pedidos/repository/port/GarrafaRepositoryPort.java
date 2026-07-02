@@ -12,5 +12,7 @@ public interface GarrafaRepositoryPort {
 
     Optional<GarrafaModel> findById(Long id);
 
+    Optional<GarrafaModel> findByIdForUpdate(Long id);
+
     GarrafaModel save(GarrafaModel garrafa);
 }
