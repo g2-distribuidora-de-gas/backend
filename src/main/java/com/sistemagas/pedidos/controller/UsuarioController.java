@@ -43,4 +43,11 @@ public class UsuarioController {
         usuarioService.eliminar(id);
         return ResponseEntity.ok(ApiResponse.ok(null, "Usuario desactivado exitosamente"));
     }
+
+    @PatchMapping("/{id}/reactivar")
+    @Operation(summary = "Reactivar usuario", description = "Vuelve a activar un usuario que fue dado de baja lógica")
+    public ResponseEntity<ApiResponse<Void>> reactivar(@PathVariable Long id) {
+        usuarioService.reactivar(id);
+        return ResponseEntity.ok(ApiResponse.ok(null, "Usuario reactivado exitosamente"));
+    }
 }

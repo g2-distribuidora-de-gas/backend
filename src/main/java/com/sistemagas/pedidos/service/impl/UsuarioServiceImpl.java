@@ -64,4 +64,19 @@ public class UsuarioServiceImpl implements UsuarioService {
         usuarioRepository.save(usuario);
         log.info("Usuario desactivado: id={}", id);
     }
+
+    @Override
+    @Transactional
+    public void reactivar(Long id) {
+        Usuario usuario = usuarioRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(Constantes.MSG_USUARIO_NO_ENCONTRADO));
+        
+        if (Boolean.TRUE.equals(usuario.getActivo())) {
+            throw new BusinessException("El usuario ya se encuentra activo");
+        }
+        
+        usuario.setActivo(true);
+        usuarioRepository.save(usuario);
+        log.info("Usuario reactivado: id={}", id);
+    }
 }

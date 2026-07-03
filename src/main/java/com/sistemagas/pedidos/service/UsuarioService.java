@@ -9,4 +9,5 @@ public interface UsuarioService {
     List<UsuarioResponse> listarTodos();
     UsuarioResponse crear(UsuarioRequest request);
     void eliminar(Long id);
+    void reactivar(Long id);
 }
