@@ -7,6 +7,9 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Pageable;
+import java.time.Instant;
+
 @Repository
 public interface PedidoRepository extends JpaRepository<Pedido, Long> {
 
@@ -15,4 +18,7 @@ public interface PedidoRepository extends JpaRepository<Pedido, Long> {
     boolean existsByUuidOffline(String uuidOffline);
 
     List<Pedido> findByUuidOfflineIn(List<String> uuids);
+
+    List<Pedido> findByUpdatedAtGreaterThan(Instant minUpdatedAt, Pageable pageable);
+    List<Pedido> findAllBy(Pageable pageable);
 }

@@ -11,6 +11,10 @@ import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 
+import org.springframework.data.domain.Pageable;
+import java.time.Instant;
+import java.util.List;
+
 @Repository
 public interface GarrafaRepository extends JpaRepository<Garrafa, Long> {
 
@@ -19,4 +23,7 @@ public interface GarrafaRepository extends JpaRepository<Garrafa, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT g FROM Garrafa g WHERE g.id = :id")
     Optional<Garrafa> findByIdForUpdate(@Param("id") Long id);
+
+    List<Garrafa> findByUpdatedAtGreaterThan(Instant minUpdatedAt, Pageable pageable);
+    List<Garrafa> findAllBy(Pageable pageable);
 }

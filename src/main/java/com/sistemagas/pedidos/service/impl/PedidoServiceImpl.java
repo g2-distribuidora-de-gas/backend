@@ -34,6 +34,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import java.time.Instant;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -121,8 +126,15 @@ public class PedidoServiceImpl implements PedidoService {
             retryFor = {DataAccessResourceFailureException.class, QueryTimeoutException.class},
             maxAttempts = 3,
             backoff = @Backoff(delay = 200, multiplier = 2))
-    public List<PedidoResponse> listarTodos() {
-        return pedidoRepository.findAll().stream()
+    public List<PedidoResponse> listarTodos(Instant minUpdatedAt, Integer limit) {
+        int pageLimit = (limit != null && limit > 0) ? limit : 100;
+        Pageable pageable = PageRequest.of(0, pageLimit, Sort.by("updatedAt").ascending().and(Sort.by("id").ascending()));
+        
+        List<Pedido> pedidos = (minUpdatedAt != null)
+                ? pedidoRepository.findByUpdatedAtGreaterThan(minUpdatedAt, pageable)
+                : pedidoRepository.findAllBy(pageable);
+
+        return pedidos.stream()
                 .map(this::buildResponseFor)
                 .toList();
     }

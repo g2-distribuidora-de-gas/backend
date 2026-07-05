@@ -18,6 +18,9 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+import org.springframework.format.annotation.DateTimeFormat;
+import java.time.Instant;
+
 @RestController
 @RequestMapping(Constantes.API_PEDIDOS)
 @RequiredArgsConstructor
@@ -37,8 +40,10 @@ public class PedidoController {
     @GetMapping
     @Operation(summary = "Listar todos los pedidos",
             description = "Retorna la lista completa de pedidos registrados")
-    public ResponseEntity<ApiResponse<List<PedidoResponse>>> listarTodos() {
-        return ResponseEntity.ok(ApiResponse.ok(pedidoService.listarTodos()));
+    public ResponseEntity<ApiResponse<List<PedidoResponse>>> listarTodos(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant minUpdatedAt,
+            @RequestParam(required = false, defaultValue = "100") Integer limit) {
+        return ResponseEntity.ok(ApiResponse.ok(pedidoService.listarTodos(minUpdatedAt, limit)));
     }
 
     @GetMapping("/{id}")

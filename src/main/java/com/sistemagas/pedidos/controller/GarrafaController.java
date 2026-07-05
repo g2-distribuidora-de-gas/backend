@@ -15,6 +15,9 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+import org.springframework.format.annotation.DateTimeFormat;
+import java.time.Instant;
+
 @RestController
 @RequestMapping(Constantes.API_GARRAFAS)
 @RequiredArgsConstructor
@@ -25,8 +28,10 @@ public class GarrafaController {
 
     @GetMapping
     @Operation(summary = "Listar todas las garrafas", description = "Retorna el catálogo completo de garrafas disponibles")
-    public ResponseEntity<ApiResponse<List<GarrafaResponse>>> listarTodas() {
-        List<GarrafaResponse> garrafas = garrafaService.listarTodas();
+    public ResponseEntity<ApiResponse<List<GarrafaResponse>>> listarTodas(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant minUpdatedAt,
+            @RequestParam(required = false, defaultValue = "100") Integer limit) {
+        List<GarrafaResponse> garrafas = garrafaService.listarTodas(minUpdatedAt, limit);
         return ResponseEntity.ok(ApiResponse.ok(garrafas));
     }
 

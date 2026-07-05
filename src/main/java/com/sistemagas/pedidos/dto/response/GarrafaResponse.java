@@ -33,4 +33,7 @@ public class GarrafaResponse {
 
     @Schema(description = "Indica si la garrafa está activa", example = "true")
     private Boolean activo;
+
+    @Schema(description = "Fecha de última modificación")
+    private java.time.Instant updatedAt;
 }

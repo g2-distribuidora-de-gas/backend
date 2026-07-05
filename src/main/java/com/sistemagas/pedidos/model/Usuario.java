@@ -3,6 +3,8 @@ package com.sistemagas.pedidos.model;
 import jakarta.persistence.*;
 import lombok.*;
 
+import com.sistemagas.pedidos.model.base.Auditable;
+
 @Entity
 @Table(name = "usuarios")
 @Getter
@@ -10,7 +12,7 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Usuario implements UsuarioModel {
+public class Usuario extends Auditable implements UsuarioModel {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

@@ -6,6 +6,8 @@ import lombok.*;
 
 import java.math.BigDecimal;
 
+import com.sistemagas.pedidos.model.base.Auditable;
+
 @Entity
 @Table(name = "garrafas")
 @Getter
@@ -13,7 +15,7 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Garrafa implements GarrafaModel {
+public class Garrafa extends Auditable implements GarrafaModel {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

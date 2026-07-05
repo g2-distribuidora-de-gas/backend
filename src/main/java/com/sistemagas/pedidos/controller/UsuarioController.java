@@ -15,6 +15,9 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+import org.springframework.format.annotation.DateTimeFormat;
+import java.time.Instant;
+
 @RestController
 @RequestMapping(Constantes.API_USUARIOS)
 @RequiredArgsConstructor
@@ -25,8 +28,10 @@ public class UsuarioController {
 
     @GetMapping
     @Operation(summary = "Listar todos los usuarios", description = "Retorna la lista completa de usuarios")
-    public ResponseEntity<ApiResponse<List<UsuarioResponse>>> listarTodos() {
-        List<UsuarioResponse> usuarios = usuarioService.listarTodos();
+    public ResponseEntity<ApiResponse<List<UsuarioResponse>>> listarTodos(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant minUpdatedAt,
+            @RequestParam(required = false, defaultValue = "100") Integer limit) {
+        List<UsuarioResponse> usuarios = usuarioService.listarTodos(minUpdatedAt, limit);
         return ResponseEntity.ok(ApiResponse.ok(usuarios));
     }
 

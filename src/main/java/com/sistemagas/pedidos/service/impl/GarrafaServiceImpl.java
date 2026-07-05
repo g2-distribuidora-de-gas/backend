@@ -20,6 +20,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import java.time.Instant;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -34,8 +39,15 @@ public class GarrafaServiceImpl implements GarrafaService {
             retryFor = {DataAccessResourceFailureException.class, QueryTimeoutException.class},
             maxAttempts = 3,
             backoff = @Backoff(delay = 200, multiplier = 2))
-    public List<GarrafaResponse> listarTodas() {
-        return garrafaRepository.findAll().stream()
+    public List<GarrafaResponse> listarTodas(Instant minUpdatedAt, Integer limit) {
+        int pageLimit = (limit != null && limit > 0) ? limit : 100;
+        Pageable pageable = PageRequest.of(0, pageLimit, Sort.by("updatedAt").ascending().and(Sort.by("id").ascending()));
+        
+        List<Garrafa> garrafas = (minUpdatedAt != null)
+                ? garrafaRepository.findByUpdatedAtGreaterThan(minUpdatedAt, pageable)
+                : garrafaRepository.findAllBy(pageable);
+
+        return garrafas.stream()
                 .map(garrafaMapper::toResponse)
                 .collect(Collectors.toList());
     }

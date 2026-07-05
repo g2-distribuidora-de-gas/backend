@@ -36,4 +36,7 @@ public class UsuarioResponse {
 
     @Schema(description = "Indica si el usuario está activo", example = "true")
     private Boolean activo;
+
+    @Schema(description = "Fecha de última modificación")
+    private java.time.Instant updatedAt;
 }

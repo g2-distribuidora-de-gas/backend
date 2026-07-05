@@ -21,6 +21,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import java.time.Instant;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -35,8 +40,15 @@ public class UsuarioServiceImpl implements UsuarioService {
             retryFor = {DataAccessResourceFailureException.class, QueryTimeoutException.class},
             maxAttempts = 3,
             backoff = @Backoff(delay = 200, multiplier = 2))
-    public List<UsuarioResponse> listarTodos() {
-        return usuarioRepository.findAll().stream()
+    public List<UsuarioResponse> listarTodos(Instant minUpdatedAt, Integer limit) {
+        int pageLimit = (limit != null && limit > 0) ? limit : 100;
+        Pageable pageable = PageRequest.of(0, pageLimit, Sort.by("updatedAt").ascending().and(Sort.by("id").ascending()));
+        
+        List<Usuario> usuarios = (minUpdatedAt != null) 
+                ? usuarioRepository.findByUpdatedAtGreaterThan(minUpdatedAt, pageable)
+                : usuarioRepository.findAllBy(pageable);
+
+        return usuarios.stream()
                 .map(usuarioMapper::toResponse)
                 .collect(Collectors.toList());
     }
