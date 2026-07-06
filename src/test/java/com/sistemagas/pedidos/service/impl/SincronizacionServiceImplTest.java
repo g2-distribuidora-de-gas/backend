@@ -76,7 +76,7 @@ class SincronizacionServiceImplTest {
         garrafaStockHelper = new GarrafaStockHelper(garrafaRepositoryPort);
 
         SincronizacionPedidoSaver pedidoSaver = new SincronizacionPedidoSaver(
-                pedidoRepository, garrafaRepositoryPort, pedidoMapper);
+                pedidoRepository, garrafaRepositoryPort, pedidoMapper, garrafaStockHelper);
         SincronizacionPedidoProcessor pedidoProcessor = new SincronizacionPedidoProcessor(
                 usuarioRepositoryPort, garrafaStockHelper, pedidoSaver);
 
