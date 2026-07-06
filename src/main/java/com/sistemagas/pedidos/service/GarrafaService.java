@@ -12,4 +12,6 @@ public interface GarrafaService {
     List<GarrafaResponse> listarTodas(Instant minUpdatedAt, Integer limit);
     GarrafaResponse crear(GarrafaRequest request);
     GarrafaResponse actualizar(Long id, GarrafaRequest request);
+    GarrafaResponse actualizarPrecio(Long id, BigDecimal precio);
+    GarrafaResponse reponerStock(Long id, Integer cantidad, String motivo);
 }
