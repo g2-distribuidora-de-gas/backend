@@ -68,4 +68,30 @@ public class GarrafaServiceImpl implements GarrafaService {
 
         return garrafaMapper.toResponse(savedGarrafa);
     }
+
+    @Override
+    @Transactional
+    public GarrafaResponse actualizar(Long id, GarrafaRequest request) {
+        Garrafa garrafa = garrafaRepository.findById(id)
+                .orElseThrow(() -> new BusinessException("Garrafa no encontrada"));
+
+        if (!garrafa.getTipo().equals(request.getTipo()) && garrafaRepository.existsByTipo(request.getTipo())) {
+            throw new BusinessException(Constantes.MSG_TIPO_GARRAFA_DUPLICADO);
+        }
+
+        garrafa.setTipo(request.getTipo());
+        garrafa.setCapacidadKg(request.getCapacidadKg());
+        garrafa.setPrecio(request.getPrecio());
+        garrafa.setStockDisponible(request.getStockDisponible());
+
+        if (request.getActivo() != null) {
+            garrafa.setActivo(request.getActivo());
+        }
+
+        Garrafa savedGarrafa = garrafaRepository.save(garrafa);
+        log.info("Garrafa actualizada: id={}, tipo={}, stock={}",
+                savedGarrafa.getId(), savedGarrafa.getTipo(), savedGarrafa.getStockDisponible());
+
+        return garrafaMapper.toResponse(savedGarrafa);
+    }
 }

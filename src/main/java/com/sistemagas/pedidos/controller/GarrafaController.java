@@ -43,4 +43,13 @@ public class GarrafaController {
         GarrafaResponse response = garrafaService.crear(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(response));
     }
+
+    @PutMapping("/{id}")
+    @Operation(summary = "Actualizar garrafa", description = "Actualiza los datos de una garrafa existente")
+    public ResponseEntity<ApiResponse<GarrafaResponse>> actualizar(
+            @PathVariable Long id,
+            @Valid @RequestBody GarrafaRequest request) {
+        GarrafaResponse response = garrafaService.actualizar(id, request);
+        return ResponseEntity.ok(ApiResponse.ok(response));
+    }
 }

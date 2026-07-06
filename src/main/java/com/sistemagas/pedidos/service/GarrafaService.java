@@ -11,4 +11,5 @@ import java.time.Instant;
 public interface GarrafaService {
     List<GarrafaResponse> listarTodas(Instant minUpdatedAt, Integer limit);
     GarrafaResponse crear(GarrafaRequest request);
+    GarrafaResponse actualizar(Long id, GarrafaRequest request);
 }
