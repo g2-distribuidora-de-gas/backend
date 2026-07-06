@@ -43,26 +43,4 @@ public class GarrafaController {
         GarrafaResponse response = garrafaService.crear(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(response));
     }
-
-    @PatchMapping("/{id}/precio")
-    @Operation(summary = "Actualizar precio de garrafa",
-            description = "Actualiza el precio de una garrafa existente. El nuevo precio aplica solo a pedidos nuevos; " +
-                    "los pedidos ya existentes conservan su precioUnitario historico.")
-    public ResponseEntity<ApiResponse<GarrafaResponse>> actualizarPrecio(
-            @PathVariable Long id,
-            @Valid @RequestBody GarrafaPrecioRequest request) {
-        GarrafaResponse response = garrafaService.actualizarPrecio(id, request.getPrecio());
-        return ResponseEntity.ok(ApiResponse.ok(response, "Precio actualizado exitosamente"));
-    }
-
-    @PostMapping("/{id}/reposicion")
-    @Operation(summary = "Reponer stock de garrafa",
-            description = "Incrementa el stockDisponible de una garrafa sumando la cantidad indicada. " +
-                    "Acepta un motivo opcional para auditoria.")
-    public ResponseEntity<ApiResponse<GarrafaResponse>> reponerStock(
-            @PathVariable Long id,
-            @Valid @RequestBody GarrafaReposicionRequest request) {
-        GarrafaResponse response = garrafaService.reponerStock(id, request.getCantidad(), request.getMotivo());
-        return ResponseEntity.ok(ApiResponse.ok(response, "Stock repuesto exitosamente"));
-    }
 }
