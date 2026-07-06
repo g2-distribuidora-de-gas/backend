@@ -16,5 +16,7 @@ public interface GarrafaMapper {
     GarrafaResponse toResponse(Garrafa garrafa);
 
     @Mapping(target = "id", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
     void updateEntity(@MappingTarget Garrafa garrafa, GarrafaRequest request);
 }

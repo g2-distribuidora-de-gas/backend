@@ -18,6 +18,8 @@ public interface UsuarioMapper {
     UsuarioResponse toResponse(Usuario usuario);
 
     @Mapping(target = "id", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
     void updateEntity(@MappingTarget Usuario usuario, UsuarioRequest request);
 
     @AfterMapping
