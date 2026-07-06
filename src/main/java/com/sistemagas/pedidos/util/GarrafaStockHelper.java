@@ -37,4 +37,26 @@ public class GarrafaStockHelper {
         }
         return mapa;
     }
+
+    public void validarYDescontar(GarrafaModel garrafa, Integer cantidad) {
+        if (garrafa == null) {
+            throw new BusinessException("No se puede descontar stock de una garrafa nula");
+        }
+        Integer stockDisponible = garrafa.getStockDisponible();
+        Integer stockResultante = (stockDisponible != null && cantidad != null)
+                ? stockDisponible - cantidad
+                : null;
+
+        if (stockDisponible == null || cantidad == null
+                || stockDisponible < 0
+                || stockResultante == null
+                || stockResultante < 0) {
+            throw new BusinessException(
+                    String.format("No se puede descontar stock: el stock disponible (%s) es inferior a 0 o insuficiente para la cantidad solicitada (%s)",
+                            stockDisponible == null ? "null" : stockDisponible,
+                            cantidad == null ? "null" : cantidad));
+        }
+
+        garrafa.setStockDisponible(stockResultante);
+    }
 }

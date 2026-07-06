@@ -85,7 +85,7 @@ public class PedidoServiceImpl implements PedidoService {
 
             pedido.agregarDetalle(detalle);
 
-            garrafa.setStockDisponible(garrafa.getStockDisponible() - det.getCantidad());
+            garrafaStockHelper.validarYDescontar(garrafa, det.getCantidad());
             garrafaRepositoryPort.save(garrafa);
         }
 

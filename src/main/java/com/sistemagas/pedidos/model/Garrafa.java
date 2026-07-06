@@ -2,6 +2,7 @@ package com.sistemagas.pedidos.model;
 
 import com.sistemagas.pedidos.enums.TipoGarrafa;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Min;
 import lombok.*;
 
 import java.math.BigDecimal;
@@ -30,6 +31,7 @@ public class Garrafa extends Auditable implements GarrafaModel {
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal precio;
 
+    @Min(value = 0, message = "El stock disponible no puede ser negativo")
     @Column(name = "stock_disponible", nullable = false)
     private Integer stockDisponible;
 

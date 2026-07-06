@@ -10,6 +10,7 @@ import com.sistemagas.pedidos.model.PedidoDetalle;
 import com.sistemagas.pedidos.model.UsuarioModel;
 import com.sistemagas.pedidos.repository.PedidoRepository;
 import com.sistemagas.pedidos.repository.port.GarrafaRepositoryPort;
+import com.sistemagas.pedidos.util.GarrafaStockHelper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -25,6 +26,7 @@ public class SincronizacionPedidoSaver {
     private final PedidoRepository pedidoRepository;
     private final GarrafaRepositoryPort garrafaRepositoryPort;
     private final PedidoMapper pedidoMapper;
+    private final GarrafaStockHelper garrafaStockHelper;
 
     @Transactional(propagation = Propagation.MANDATORY)
     public Long guardar(PedidoRequest request, UsuarioModel usuario, Map<Long, GarrafaModel> garrafas) {
@@ -50,7 +52,7 @@ public class SincronizacionPedidoSaver {
 
             pedido.agregarDetalle(detalle);
 
-            garrafa.setStockDisponible(garrafa.getStockDisponible() - det.getCantidad());
+            garrafaStockHelper.validarYDescontar(garrafa, det.getCantidad());
             garrafaRepositoryPort.save(garrafa);
         }
 
