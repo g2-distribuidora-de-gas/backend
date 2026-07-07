@@ -11,26 +11,24 @@ import org.mapstruct.MappingTarget;
 @Mapper(componentModel = "spring", uses = {PedidoDetalleMapper.class})
 public interface PedidoMapper {
 
-    @Mapping(source = "usuarioId", target = "usuarioId")
-    @Mapping(target = "usuarioNombreCompleto", ignore = true)
+    @Mapping(source = "cliente.id", target = "clienteId")
+    @Mapping(source = "cliente.nombre", target = "clienteNombre")
     @Mapping(target = "total", expression = "java(pedido.getDetalles() == null ? java.math.BigDecimal.ZERO : pedido.getDetalles().stream().map(d -> d.getSubtotal() == null ? java.math.BigDecimal.ZERO : d.getSubtotal()).reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add))")
     PedidoResponse toResponse(Pedido pedido);
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "estado", ignore = true)
     @Mapping(target = "detalles", ignore = true)
+    @Mapping(target = "cliente", ignore = true)
     Pedido toEntity(PedidoRequest request);
 
-    default void fillUsuarioNombreCompleto(PedidoResponse response, Pedido pedido, UsuarioModel usuario) {
-        if (usuario != null) {
-            response.setUsuarioNombreCompleto(usuario.getNombre() + " " + usuario.getApellido());
-        }
-    }
+
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "estado", ignore = true)
     @Mapping(target = "detalles", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "cliente", ignore = true)
     void updateEntityFromRequest(PedidoRequest request, @MappingTarget Pedido pedido);
 }

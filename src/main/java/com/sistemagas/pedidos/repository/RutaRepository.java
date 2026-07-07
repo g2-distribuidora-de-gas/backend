@@ -1,0 +1,23 @@
+package com.sistemagas.pedidos.repository;
+
+import com.sistemagas.pedidos.enums.EstadoRuta;
+import com.sistemagas.pedidos.model.Ruta;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+public interface RutaRepository extends JpaRepository<Ruta, Long> {
+
+    // Útil para buscar la ruta del día actual de un repartidor
+    Optional<Ruta> findByRepartidorIdAndFechaRepartoAndEstado(Long repartidorId, LocalDate fechaReparto, EstadoRuta estado);
+
+    // Listar todas las rutas de un día en particular (útil para el admin)
+    List<Ruta> findByFechaReparto(LocalDate fechaReparto);
+    
+    // Obtener las rutas activas o en curso de un repartidor
+    List<Ruta> findByRepartidorIdAndEstadoIn(Long repartidorId, List<EstadoRuta> estados);
+}
