@@ -19,8 +19,8 @@ public class PedidoRequest {
     @Size(max = 100)
     private String uuidOffline;
 
-    @NotNull(message = "El ID de usuario es obligatorio")
-    private Long usuarioId;
+    @NotNull(message = "El ID del cliente es obligatorio")
+    private Long clienteId;
 
     @NotBlank(message = "La direccion de entrega es obligatoria")
     @Size(max = 300)

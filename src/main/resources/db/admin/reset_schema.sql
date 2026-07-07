@@ -18,8 +18,11 @@
 BEGIN;
 
 -- Borrar tablas en orden inverso por las FKs
+DROP TABLE IF EXISTS ruta_pedidos CASCADE;
+DROP TABLE IF EXISTS rutas          CASCADE;
 DROP TABLE IF EXISTS pedido_detalles CASCADE;
 DROP TABLE IF EXISTS pedidos        CASCADE;
+DROP TABLE IF EXISTS clientes       CASCADE;
 DROP TABLE IF EXISTS garrafas       CASCADE;
 DROP TABLE IF EXISTS usuarios       CASCADE;
 

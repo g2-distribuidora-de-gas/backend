@@ -7,7 +7,7 @@ import com.sistemagas.pedidos.mapper.PedidoMapper;
 import com.sistemagas.pedidos.model.GarrafaModel;
 import com.sistemagas.pedidos.model.Pedido;
 import com.sistemagas.pedidos.model.PedidoDetalle;
-import com.sistemagas.pedidos.model.UsuarioModel;
+import com.sistemagas.pedidos.model.Cliente;
 import com.sistemagas.pedidos.repository.PedidoRepository;
 import com.sistemagas.pedidos.repository.port.GarrafaRepositoryPort;
 import com.sistemagas.pedidos.util.GarrafaStockHelper;
@@ -29,10 +29,10 @@ public class SincronizacionPedidoSaver {
     private final GarrafaStockHelper garrafaStockHelper;
 
     @Transactional(propagation = Propagation.MANDATORY)
-    public Long guardar(PedidoRequest request, UsuarioModel usuario, Map<Long, GarrafaModel> garrafas) {
+    public Long guardar(PedidoRequest request, Cliente cliente, Map<Long, GarrafaModel> garrafas) {
         Pedido pedido = pedidoMapper.toEntity(request);
         pedido.setUuidOffline(request.getUuidOffline());
-        pedido.setUsuarioId(usuario.getId());
+        pedido.setCliente(cliente);
         pedido.setEstado(EstadoPedido.PENDIENTE);
 
         for (PedidoDetalleRequest det : request.getDetalles()) {

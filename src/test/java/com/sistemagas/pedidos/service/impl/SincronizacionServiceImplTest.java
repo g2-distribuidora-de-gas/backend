@@ -13,10 +13,10 @@ import com.sistemagas.pedidos.mapper.PedidoMapper;
 import com.sistemagas.pedidos.mapper.PedidoMapperImpl;
 import com.sistemagas.pedidos.model.Garrafa;
 import com.sistemagas.pedidos.model.Pedido;
-import com.sistemagas.pedidos.model.Usuario;
+import com.sistemagas.pedidos.model.Cliente;
+import com.sistemagas.pedidos.repository.ClienteRepository;
 import com.sistemagas.pedidos.repository.PedidoRepository;
 import com.sistemagas.pedidos.repository.port.GarrafaRepositoryPort;
-import com.sistemagas.pedidos.repository.port.UsuarioRepositoryPort;
 import com.sistemagas.pedidos.util.Constantes;
 import com.sistemagas.pedidos.util.GarrafaStockHelper;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,7 +46,7 @@ class SincronizacionServiceImplTest {
     private GarrafaRepositoryPort garrafaRepositoryPort;
 
     @Mock
-    private UsuarioRepositoryPort usuarioRepositoryPort;
+    private ClienteRepository clienteRepository;
 
     private PedidoMapper pedidoMapper;
     private PedidoDetalleMapper pedidoDetalleMapper;
@@ -54,17 +54,16 @@ class SincronizacionServiceImplTest {
 
     private SincronizacionServiceImpl service;
 
-    private Usuario usuario;
+    private Cliente cliente;
     private Garrafa garrafa10;
     private Garrafa garrafa15;
 
     @BeforeEach
     void setUp() {
-        usuario = new Usuario() {
-            @Override public Long getId() { return 1L; }
-            @Override public String getNombre() { return "Juan"; }
-            @Override public String getApellido() { return "Perez"; }
-        };
+        cliente = Cliente.builder()
+                .id(1L)
+                .nombre("Juan")
+                .build();
 
         garrafa10 = makeGarrafa(1L, TipoGarrafa.GARRAFA_10KG, new BigDecimal("5500.00"), 100);
         garrafa15 = makeGarrafa(2L, TipoGarrafa.GARRAFA_15KG, new BigDecimal("7800.00"), 50);
@@ -78,7 +77,7 @@ class SincronizacionServiceImplTest {
         SincronizacionPedidoSaver pedidoSaver = new SincronizacionPedidoSaver(
                 pedidoRepository, garrafaRepositoryPort, pedidoMapper, garrafaStockHelper);
         SincronizacionPedidoProcessor pedidoProcessor = new SincronizacionPedidoProcessor(
-                usuarioRepositoryPort, garrafaStockHelper, pedidoSaver);
+                clienteRepository, garrafaStockHelper, pedidoSaver);
 
         service = new SincronizacionServiceImpl(pedidoRepository, pedidoProcessor);
     }
@@ -88,7 +87,7 @@ class SincronizacionServiceImplTest {
     void sync_pedidoNuevo_conMultiplesDetalles() {
         PedidoRequest req = PedidoRequest.builder()
                 .uuidOffline("uuid-1")
-                .usuarioId(1L)
+                .clienteId(1L)
                 .direccionEntrega("Calle 123")
                 .detalles(List.of(
                         PedidoDetalleRequest.builder().garrafaId(1L).cantidad(2).build(),
@@ -97,7 +96,7 @@ class SincronizacionServiceImplTest {
                 .build();
 
         when(pedidoRepository.findByUuidOfflineIn(anyList())).thenReturn(List.of());
-        when(usuarioRepositoryPort.findById(1L)).thenReturn(Optional.of(usuario));
+        when(clienteRepository.findById(1L)).thenReturn(Optional.of(cliente));
         when(garrafaRepositoryPort.findByIdForUpdate(1L)).thenReturn(Optional.of(garrafa10));
         when(garrafaRepositoryPort.findByIdForUpdate(2L)).thenReturn(Optional.of(garrafa15));
         when(garrafaRepositoryPort.save(any(Garrafa.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -135,13 +134,13 @@ class SincronizacionServiceImplTest {
         Pedido existente = Pedido.builder()
                 .id(10L)
                 .uuidOffline("uuid-dup")
-                .usuarioId(1L)
+                .cliente(cliente)
                 .direccionEntrega("Calle 123")
                 .build();
 
         PedidoRequest req = PedidoRequest.builder()
                 .uuidOffline("uuid-dup")
-                .usuarioId(1L)
+                .clienteId(1L)
                 .direccionEntrega("Calle 123")
                 .detalles(List.of(
                         PedidoDetalleRequest.builder().garrafaId(1L).cantidad(2).build()
@@ -166,39 +165,39 @@ class SincronizacionServiceImplTest {
         Pedido existente = Pedido.builder()
                 .id(10L)
                 .uuidOffline("uuid-dup")
-                .usuarioId(1L)
+                .cliente(cliente)
                 .direccionEntrega("Calle 123")
                 .build();
 
         PedidoRequest nuevo = PedidoRequest.builder()
                 .uuidOffline("uuid-new")
-                .usuarioId(1L)
+                .clienteId(1L)
                 .direccionEntrega("Calle nueva")
                 .detalles(List.of(PedidoDetalleRequest.builder().garrafaId(1L).cantidad(1).build()))
                 .build();
 
         PedidoRequest duplicado = PedidoRequest.builder()
                 .uuidOffline("uuid-dup")
-                .usuarioId(1L)
+                .clienteId(1L)
                 .direccionEntrega("Calle 123")
                 .detalles(List.of(PedidoDetalleRequest.builder().garrafaId(1L).cantidad(1).build()))
                 .build();
 
         PedidoRequest sinUuid = PedidoRequest.builder()
-                .usuarioId(1L)
+                .clienteId(1L)
                 .direccionEntrega("Calle sin uuid")
                 .detalles(List.of(PedidoDetalleRequest.builder().garrafaId(1L).cantidad(1).build()))
                 .build();
 
         PedidoRequest sinDetalles = PedidoRequest.builder()
                 .uuidOffline("uuid-empty")
-                .usuarioId(1L)
+                .clienteId(1L)
                 .direccionEntrega("Calle sin detalles")
                 .detalles(List.of())
                 .build();
 
         when(pedidoRepository.findByUuidOfflineIn(anyList())).thenReturn(List.of(existente));
-        when(usuarioRepositoryPort.findById(1L)).thenReturn(Optional.of(usuario));
+        when(clienteRepository.findById(1L)).thenReturn(Optional.of(cliente));
         when(garrafaRepositoryPort.findByIdForUpdate(1L)).thenReturn(Optional.of(garrafa10));
         when(garrafaRepositoryPort.save(any(Garrafa.class))).thenAnswer(inv -> inv.getArgument(0));
         when(pedidoRepository.save(any(Pedido.class))).thenAnswer(inv -> {
@@ -225,20 +224,20 @@ class SincronizacionServiceImplTest {
     void sync_errorInesperado_noRompeLote() {
         PedidoRequest req1 = PedidoRequest.builder()
                 .uuidOffline("uuid-falla")
-                .usuarioId(1L)
+                .clienteId(1L)
                 .direccionEntrega("Calle 1")
                 .detalles(List.of(PedidoDetalleRequest.builder().garrafaId(1L).cantidad(1).build()))
                 .build();
 
         PedidoRequest req2 = PedidoRequest.builder()
                 .uuidOffline("uuid-ok")
-                .usuarioId(1L)
+                .clienteId(1L)
                 .direccionEntrega("Calle 2")
                 .detalles(List.of(PedidoDetalleRequest.builder().garrafaId(1L).cantidad(1).build()))
                 .build();
 
         when(pedidoRepository.findByUuidOfflineIn(anyList())).thenReturn(List.of());
-        when(usuarioRepositoryPort.findById(1L)).thenReturn(Optional.of(usuario));
+        when(clienteRepository.findById(1L)).thenReturn(Optional.of(cliente));
         when(garrafaRepositoryPort.findByIdForUpdate(1L)).thenReturn(Optional.of(garrafa10));
         when(garrafaRepositoryPort.save(any(Garrafa.class))).thenAnswer(inv -> inv.getArgument(0));
 

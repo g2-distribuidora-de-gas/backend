@@ -17,8 +17,8 @@ public class PedidoResponse {
 
     private Long id;
     private String uuidOffline;
-    private Long usuarioId;
-    private String usuarioNombreCompleto;
+    private Long clienteId;
+    private String clienteNombre;
     private String direccionEntrega;
     private EstadoPedido estado;
     private String urlFotoEvidencia;

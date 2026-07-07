@@ -3,8 +3,8 @@ package com.sistemagas.pedidos.service.impl;
 import com.sistemagas.pedidos.dto.request.PedidoRequest;
 import com.sistemagas.pedidos.dto.response.SincronizacionResponse;
 import com.sistemagas.pedidos.model.GarrafaModel;
-import com.sistemagas.pedidos.model.UsuarioModel;
-import com.sistemagas.pedidos.repository.port.UsuarioRepositoryPort;
+import com.sistemagas.pedidos.model.Cliente;
+import com.sistemagas.pedidos.repository.ClienteRepository;
 import com.sistemagas.pedidos.util.GarrafaStockHelper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,19 +19,19 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class SincronizacionPedidoProcessor {
 
-    private final UsuarioRepositoryPort usuarioRepositoryPort;
+    private final ClienteRepository clienteRepository;
     private final GarrafaStockHelper garrafaStockHelper;
     private final SincronizacionPedidoSaver pedidoSaver;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public SincronizacionResponse.Procesado procesar(PedidoRequest request) {
-        UsuarioModel usuario = usuarioRepositoryPort.findById(request.getUsuarioId())
+        Cliente cliente = clienteRepository.findById(request.getClienteId())
                 .orElseThrow(() -> new IllegalStateException(
-                        "Usuario no encontrado: id=" + request.getUsuarioId()));
+                        "Cliente no encontrado: id=" + request.getClienteId()));
 
         Map<Long, GarrafaModel> garrafas = garrafaStockHelper.cargarYValidar(request.getDetalles());
 
-        Long pedidoId = pedidoSaver.guardar(request, usuario, garrafas);
+        Long pedidoId = pedidoSaver.guardar(request, cliente, garrafas);
 
         log.info("Pedido sincronizado: id={}, uuidOffline={}, detalles={}",
                 pedidoId, request.getUuidOffline(), request.getDetalles().size());

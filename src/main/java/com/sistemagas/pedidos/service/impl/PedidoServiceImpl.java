@@ -13,7 +13,8 @@ import com.sistemagas.pedidos.mapper.PedidoMapper;
 import com.sistemagas.pedidos.model.GarrafaModel;
 import com.sistemagas.pedidos.model.Pedido;
 import com.sistemagas.pedidos.model.PedidoDetalle;
-import com.sistemagas.pedidos.model.UsuarioModel;
+import com.sistemagas.pedidos.model.Cliente;
+import com.sistemagas.pedidos.repository.ClienteRepository;
 import com.sistemagas.pedidos.repository.PedidoRepository;
 import com.sistemagas.pedidos.repository.port.GarrafaRepositoryPort;
 import com.sistemagas.pedidos.repository.port.UsuarioRepositoryPort;
@@ -50,7 +51,7 @@ public class PedidoServiceImpl implements PedidoService {
 
     private final PedidoRepository pedidoRepository;
     private final GarrafaRepositoryPort garrafaRepositoryPort;
-    private final UsuarioRepositoryPort usuarioRepositoryPort;
+    private final ClienteRepository clienteRepository;
     private final PedidoMapper pedidoMapper;
     private final PedidoDetalleMapper pedidoDetalleMapper;
     private final GarrafaStockHelper garrafaStockHelper;
@@ -65,11 +66,11 @@ public class PedidoServiceImpl implements PedidoService {
             throw new BusinessException(Constantes.MSG_PEDIDO_DUPLICADO);
         }
 
-        UsuarioModel usuario = usuarioRepositoryPort.findById(request.getUsuarioId())
-                .orElseThrow(() -> new ResourceNotFoundException(Constantes.MSG_USUARIO_NO_ENCONTRADO));
+        Cliente cliente = clienteRepository.findById(request.getClienteId())
+                .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado"));
 
         Pedido pedido = pedidoMapper.toEntity(request);
-        pedido.setUsuarioId(usuario.getId());
+        pedido.setCliente(cliente);
         pedido.setEstado(EstadoPedido.PENDIENTE);
 
         Map<Long, GarrafaModel> garrafas = garrafaStockHelper.cargarYValidar(request.getDetalles());
@@ -99,7 +100,7 @@ public class PedidoServiceImpl implements PedidoService {
         log.info("Pedido creado: id={}, uuidOffline={}, detalles={}",
                 guardado.getId(), guardado.getUuidOffline(), guardado.getDetalles().size());
 
-        return buildResponse(guardado, usuario, garrafas);
+        return buildResponse(guardado, cliente, garrafas);
     }
 
     @Override
@@ -191,19 +192,18 @@ public class PedidoServiceImpl implements PedidoService {
     }
 
     private PedidoResponse buildResponseFor(Pedido pedido) {
-        UsuarioModel usuario = usuarioRepositoryPort.findById(pedido.getUsuarioId()).orElse(null);
+        Cliente cliente = pedido.getCliente();
 
         Map<Long, GarrafaModel> garrafas = new HashMap<>();
         for (PedidoDetalle d : pedido.getDetalles()) {
             garrafaRepositoryPort.findById(d.getGarrafaId()).ifPresent(g -> garrafas.put(g.getId(), g));
         }
 
-        return buildResponse(pedido, usuario, garrafas);
+        return buildResponse(pedido, cliente, garrafas);
     }
 
-    private PedidoResponse buildResponse(Pedido pedido, UsuarioModel usuario, Map<Long, GarrafaModel> garrafas) {
+    private PedidoResponse buildResponse(Pedido pedido, Cliente cliente, Map<Long, GarrafaModel> garrafas) {
         PedidoResponse response = pedidoMapper.toResponse(pedido);
-        pedidoMapper.fillUsuarioNombreCompleto(response, pedido, usuario);
 
         List<PedidoDetalleResponse> detalles = new ArrayList<>();
         for (PedidoDetalle d : pedido.getDetalles()) {

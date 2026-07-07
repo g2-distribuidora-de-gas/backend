@@ -80,7 +80,9 @@ if ! command -v psql >/dev/null 2>&1; then
 fi
 
 echo "[INFO] Ejecutando reset..."
-psql "$SUPABASE_DB_URL" -f "$SQL_FILE"
+PSQL_URL="${SUPABASE_DB_URL#jdbc:}"
+PSQL_URL="${PSQL_URL%&*}"
+psql "$PSQL_URL" -f "$SQL_FILE"
 
 echo ""
 echo "[OK] Reset completado. Ahora podes arrancar la app y Flyway creara las tablas."
