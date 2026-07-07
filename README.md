@@ -193,7 +193,7 @@ POST /api/sincronizar
   "pedidos": [
     {
       "uuidOffline": "abc-123",
-      "usuarioId": 1,
+      "clienteId": 1,
       "garrafaId": 2,
       "cantidad": 1,
       "direccionEntrega": "Calle Falsa 123",

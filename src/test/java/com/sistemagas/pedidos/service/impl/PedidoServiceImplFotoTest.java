@@ -4,10 +4,11 @@ import com.sistemagas.pedidos.dto.response.PedidoFotoResponse;
 import com.sistemagas.pedidos.exception.ResourceNotFoundException;
 import com.sistemagas.pedidos.mapper.PedidoDetalleMapperImpl;
 import com.sistemagas.pedidos.mapper.PedidoMapperImpl;
+import com.sistemagas.pedidos.model.Cliente;
 import com.sistemagas.pedidos.model.Pedido;
+import com.sistemagas.pedidos.repository.ClienteRepository;
 import com.sistemagas.pedidos.repository.PedidoRepository;
 import com.sistemagas.pedidos.repository.port.GarrafaRepositoryPort;
-import com.sistemagas.pedidos.repository.port.UsuarioRepositoryPort;
 import com.sistemagas.pedidos.service.SupabaseStorageService;
 import com.sistemagas.pedidos.support.NoopTransactionManager;
 import com.sistemagas.pedidos.util.Constantes;
@@ -43,7 +44,7 @@ class PedidoServiceImplFotoTest {
     private GarrafaRepositoryPort garrafaRepositoryPort;
 
     @Mock
-    private UsuarioRepositoryPort usuarioRepositoryPort;
+    private ClienteRepository clienteRepository;
 
     @Mock
     private SupabaseStorageService supabaseStorageService;
@@ -62,7 +63,7 @@ class PedidoServiceImplFotoTest {
         service = new PedidoServiceImpl(
                 pedidoRepository,
                 garrafaRepositoryPort,
-                usuarioRepositoryPort,
+                clienteRepository,
                 pedidoMapper,
                 pedidoDetalleMapper,
                 garrafaStockHelper,
@@ -86,9 +87,10 @@ class PedidoServiceImplFotoTest {
     @Test
     @DisplayName("subirFoto: sube el archivo, persiste la URL en el pedido y devuelve el DTO")
     void subirFoto_ok_persisteUrl() {
+        Cliente cliente = Cliente.builder().id(1L).nombre("Juan").direccion("Calle 1").build();
         Pedido pedido = Pedido.builder()
                 .id(5L)
-                .usuarioId(1L)
+                .cliente(cliente)
                 .direccionEntrega("Calle 1")
                 .build();
         when(pedidoRepository.existsById(5L)).thenReturn(true);

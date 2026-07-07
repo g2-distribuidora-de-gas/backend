@@ -17,7 +17,6 @@ import com.sistemagas.pedidos.model.Cliente;
 import com.sistemagas.pedidos.repository.ClienteRepository;
 import com.sistemagas.pedidos.repository.PedidoRepository;
 import com.sistemagas.pedidos.repository.port.GarrafaRepositoryPort;
-import com.sistemagas.pedidos.repository.port.UsuarioRepositoryPort;
 import com.sistemagas.pedidos.service.PedidoService;
 import com.sistemagas.pedidos.service.SupabaseStorageService;
 import com.sistemagas.pedidos.util.Constantes;

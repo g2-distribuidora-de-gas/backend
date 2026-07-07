@@ -6,12 +6,12 @@ import com.sistemagas.pedidos.enums.TipoGarrafa;
 import com.sistemagas.pedidos.exception.ResourceNotFoundException;
 import com.sistemagas.pedidos.mapper.PedidoDetalleMapperImpl;
 import com.sistemagas.pedidos.mapper.PedidoMapperImpl;
+import com.sistemagas.pedidos.model.Cliente;
 import com.sistemagas.pedidos.model.Garrafa;
 import com.sistemagas.pedidos.model.Pedido;
-import com.sistemagas.pedidos.model.Usuario;
+import com.sistemagas.pedidos.repository.ClienteRepository;
 import com.sistemagas.pedidos.repository.PedidoRepository;
 import com.sistemagas.pedidos.repository.port.GarrafaRepositoryPort;
-import com.sistemagas.pedidos.repository.port.UsuarioRepositoryPort;
 import com.sistemagas.pedidos.service.SupabaseStorageService;
 import com.sistemagas.pedidos.support.NoopTransactionManager;
 import com.sistemagas.pedidos.util.GarrafaStockHelper;
@@ -44,23 +44,23 @@ class PedidoServiceImplCrearTest {
     private GarrafaRepositoryPort garrafaRepositoryPort;
 
     @Mock
-    private UsuarioRepositoryPort usuarioRepositoryPort;
+    private ClienteRepository clienteRepository;
 
     @Mock
     private SupabaseStorageService supabaseStorageService;
 
     private PedidoServiceImpl service;
 
-    private Usuario usuario;
+    private Cliente cliente;
     private Garrafa garrafa;
 
     @BeforeEach
     void setUp() {
-        usuario = new Usuario() {
-            @Override public Long getId() { return 1L; }
-            @Override public String getNombre() { return "Juan"; }
-            @Override public String getApellido() { return "Perez"; }
-        };
+        cliente = Cliente.builder()
+                .id(1L)
+                .nombre("Juan")
+                .direccion("Calle 123")
+                .build();
 
         garrafa = new Garrafa() {
             @Override public Long getId() { return 1L; }
@@ -80,7 +80,7 @@ class PedidoServiceImplCrearTest {
         service = new PedidoServiceImpl(
                 pedidoRepository,
                 garrafaRepositoryPort,
-                usuarioRepositoryPort,
+                clienteRepository,
                 pedidoMapper,
                 pedidoDetalleMapper,
                 garrafaStockHelper,
@@ -95,14 +95,14 @@ class PedidoServiceImplCrearTest {
 
         PedidoRequest req = PedidoRequest.builder()
                 .uuidOffline("uuid-1")
-                .usuarioId(1L)
+                .clienteId(1L)
                 .direccionEntrega("Calle 123")
                 .urlFotoEvidencia(urlFoto)
                 .detalles(List.of(PedidoDetalleRequest.builder().garrafaId(1L).cantidad(1).build()))
                 .build();
 
         when(pedidoRepository.existsByUuidOffline(any())).thenReturn(false);
-        when(usuarioRepositoryPort.findById(1L)).thenReturn(Optional.of(usuario));
+        when(clienteRepository.findById(1L)).thenReturn(Optional.of(cliente));
         when(garrafaRepositoryPort.findByIdForUpdate(1L)).thenReturn(Optional.of(garrafa));
         when(garrafaRepositoryPort.save(any(Garrafa.class))).thenAnswer(inv -> inv.getArgument(0));
         when(pedidoRepository.save(any(Pedido.class))).thenAnswer(inv -> {
@@ -116,6 +116,7 @@ class PedidoServiceImplCrearTest {
         ArgumentCaptor<Pedido> captor = ArgumentCaptor.forClass(Pedido.class);
         verify(pedidoRepository).save(captor.capture());
         assertThat(captor.getValue().getUrlFotoEvidencia()).isEqualTo(urlFoto);
+        assertThat(captor.getValue().getCliente()).isEqualTo(cliente);
     }
 
     @Test
@@ -123,13 +124,13 @@ class PedidoServiceImplCrearTest {
     void crear_urlFotoEvidenciaNull_noRompe() {
         PedidoRequest req = PedidoRequest.builder()
                 .uuidOffline("uuid-1")
-                .usuarioId(1L)
+                .clienteId(1L)
                 .direccionEntrega("Calle 123")
                 .detalles(List.of(PedidoDetalleRequest.builder().garrafaId(1L).cantidad(1).build()))
                 .build();
 
         when(pedidoRepository.existsByUuidOffline(any())).thenReturn(false);
-        when(usuarioRepositoryPort.findById(1L)).thenReturn(Optional.of(usuario));
+        when(clienteRepository.findById(1L)).thenReturn(Optional.of(cliente));
         when(garrafaRepositoryPort.findByIdForUpdate(1L)).thenReturn(Optional.of(garrafa));
         when(garrafaRepositoryPort.save(any(Garrafa.class))).thenAnswer(inv -> inv.getArgument(0));
         when(pedidoRepository.save(any(Pedido.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -142,17 +143,17 @@ class PedidoServiceImplCrearTest {
     }
 
     @Test
-    @DisplayName("crear: lanza 404 cuando el usuario no existe")
-    void crear_usuarioNoExiste_lanza404() {
+    @DisplayName("crear: lanza 404 cuando el cliente no existe")
+    void crear_clienteNoExiste_lanza404() {
         PedidoRequest req = PedidoRequest.builder()
                 .uuidOffline("uuid-1")
-                .usuarioId(99L)
+                .clienteId(99L)
                 .direccionEntrega("Calle 123")
                 .detalles(List.of(PedidoDetalleRequest.builder().garrafaId(1L).cantidad(1).build()))
                 .build();
 
         when(pedidoRepository.existsByUuidOffline(any())).thenReturn(false);
-        when(usuarioRepositoryPort.findById(99L)).thenReturn(Optional.empty());
+        when(clienteRepository.findById(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.crear(req))
                 .isInstanceOf(ResourceNotFoundException.class);
