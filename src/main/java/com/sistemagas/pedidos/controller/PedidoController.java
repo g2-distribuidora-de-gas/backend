@@ -8,6 +8,8 @@ import com.sistemagas.pedidos.service.PedidoService;
 import com.sistemagas.pedidos.util.Constantes;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -78,19 +80,23 @@ public class PedidoController {
 
     @PostMapping(value = "/{id}/foto", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Subir foto de fachada como evidencia visual",
-            description = "Recibe un archivo de imagen (jpg/png/webp) y lo sube al bucket de Supabase Storage. "
+            description = "Recibe un archivo de imagen (jpg/png/webp, max 10MB) y lo sube al bucket de Supabase Storage. "
                     + "Devuelve la URL publica resultante y la persiste en el pedido.")
     @ApiResponses({
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Foto subida y asociada al pedido"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Archivo invalido o tipo no permitido"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Foto subida y asociada al pedido",
+                    content = @Content(schema = @Schema(implementation = PedidoFotoResponse.class))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Archivo invalido, vacio o tipo no permitido (solo image/jpeg, image/png, image/webp)"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Pedido no encontrado"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "413", description = "Archivo excede el tamano maximo"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "413", description = "Archivo excede el tamano maximo permitido (default 10MB)"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "502", description = "Error al comunicarse con Supabase Storage")
     })
     public ResponseEntity<ApiResponse<PedidoFotoResponse>> subirFoto(
             @Parameter(description = "ID del pedido", example = "1") @PathVariable Long id,
-            @Parameter(description = "Archivo de imagen (campo 'archivo')") @RequestParam("archivo") MultipartFile archivo,
-            @Parameter(description = "Descripcion opcional de la evidencia") @RequestParam(value = "descripcion", required = false) String descripcion) {
+            @Parameter(description = "Archivo de imagen (jpg/png/webp). En el form-data el campo debe llamarse 'archivo'.",
+                    content = @Content(mediaType = MediaType.APPLICATION_OCTET_STREAM_VALUE))
+            @RequestParam("archivo") MultipartFile archivo,
+            @Parameter(description = "Descripcion opcional de la evidencia (texto libre, no se persiste en Storage)")
+            @RequestParam(value = "descripcion", required = false) String descripcion) {
         PedidoFotoResponse response = pedidoService.subirFoto(id, archivo, descripcion);
         return ResponseEntity.ok(ApiResponse.ok(response, "Foto de evidencia subida correctamente"));
     }

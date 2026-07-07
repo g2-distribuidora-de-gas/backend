@@ -14,4 +14,12 @@ public interface SupabaseStorageService {
      * @return la URL publica donde queda el archivo.
      */
     String subir(Long pedidoId, MultipartFile archivo, String descripcion);
+
+    /**
+     * Elimina un archivo del bucket a partir de su URL publica.
+     * Usado como compensacion cuando la operacion principal falla despues de subir.
+     *
+     * @param urlPublica URL publica devuelta por {@link #subir(Long, MultipartFile, String)}.
+     */
+    void eliminar(String urlPublica);
 }

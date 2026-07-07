@@ -8,21 +8,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
-import org.springframework.http.client.reactive.ClientHttpResponse;
-import org.springframework.mock.http.MockHttpOutputMessage;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -108,7 +100,7 @@ class SupabaseStorageServiceImplTest {
 
     @Test
     @DisplayName("subir: con respuesta 2xx del WebClient devuelve la URL publica del bucket")
-    void subir_ok_retornaUrlPublica() throws IOException {
+    void subir_ok_retornaUrlPublica() {
         stubWebClientOk();
 
         String url = service.subir(42L, jpeg(), "Fachada principal");
@@ -119,23 +111,18 @@ class SupabaseStorageServiceImplTest {
     }
 
     @Test
-    @DisplayName("subir: con respuesta 4xx lanza BusinessException con status code")
-    void subir_respuestaError_lanzaExcepcion() throws IOException {
-        MockHttpOutputMessage out = new MockHttpOutputMessage();
-        out.getBody().write("bucket not found".getBytes(StandardCharsets.UTF_8));
-        ClientHttpResponse httpResponse = new StubClientHttpResponse(
-                org.springframework.http.HttpStatus.NOT_FOUND, out);
-
+    @DisplayName("subir: con error HTTP del WebClient lanza BusinessException")
+    void subir_respuestaError_lanzaExcepcion() {
         WebClientResponseException wcre = WebClientResponseException.create(
                 404, "Not Found", org.springframework.http.HttpHeaders.EMPTY, null, null);
+
         lenient().when(webClient.post()).thenReturn(requestBodyUriSpec);
         lenient().when(requestBodyUriSpec.uri(anyString(), any(Object[].class))).thenReturn(requestBodySpec);
         lenient().when(requestBodySpec.header(anyString(), anyString())).thenReturn(requestBodySpec);
         lenient().when(requestBodySpec.bodyValue(any())).thenReturn(requestHeadersSpec);
         lenient().when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
         lenient().when(responseSpec.onStatus(any(), any())).thenReturn(responseSpec);
-        lenient().when(responseSpec.toBodilessEntity())
-                .thenThrow(wcre);
+        lenient().when(responseSpec.toBodilessEntity()).thenThrow(wcre);
 
         assertThatThrownBy(() -> service.subir(7L, jpeg(), null))
                 .isInstanceOf(BusinessException.class)
@@ -157,33 +144,5 @@ class SupabaseStorageServiceImplTest {
         lenient().when(responseSpec.onStatus(any(), any())).thenReturn(responseSpec);
         lenient().when(responseSpec.toBodilessEntity())
                 .thenReturn(Mono.just(org.springframework.http.ResponseEntity.ok().build()));
-    }
-
-    private static class StubClientHttpResponse implements ClientHttpResponse {
-        private final org.springframework.http.HttpStatusCode status;
-        private final MockHttpOutputMessage body;
-
-        StubClientHttpResponse(org.springframework.http.HttpStatusCode status, MockHttpOutputMessage body) {
-            this.status = status;
-            this.body = body;
-        }
-
-        @Override public HttpStatusCode getStatusCode() { return status; }
-        @Override public int getRawStatusCode() { return status.value(); }
-        @Override public String getStatusText() { return status.toString(); }
-        @Override public org.springframework.http.HttpHeaders getHeaders() { return new org.springframework.http.HttpHeaders(); }
-        @Override public org.springframework.core.io.buffer.DataBufferFactory bufferFactory() { return null; }
-        @Override public Flux<org.springframework.core.io.buffer.DataBuffer> getBody() { return Flux.empty(); }
-        @Override public Mono<Void> writeTo(java.util.function.Supplier<? extends org.springframework.core.io.buffer.DataBuffer> body, org.springframework.core.io.buffer.DataBufferFactory bufferFactory) { return Mono.empty(); }
-        @Override public Mono<Void> writeAndFlushWith(java.util.function.Supplier<? extends org.springframework.core.io.buffer.Publisher<? extends org.springframework.core.io.buffer.DataBuffer>> body) { return Mono.empty(); }
-        @Override public org.springframework.http.client.reactive.ClientHttpResponse logPrefix() { return this; }
-        @Override public URI getURI() { return URI.create("https://test.supabase.co"); }
-        @Override public boolean isCommitted() { return true; }
-        @Override public Mono<Void> setComplete() { return Mono.empty(); }
-        @Override public ByteArrayOutputStream getBodyAsBytes() { return null; }
-        @Override public <T> T getBodyToMono(Class<T> elementClass) { return null; }
-        @Override public <T> Flux<T> getBodyToFlux(Class<T> elementClass) { return Flux.empty(); }
-        @Override public Mono<Void> releaseBody() { return Mono.empty(); }
-        @Override public Mono<Void> writeAndFlushWith(java.util.function.Supplier<? extends org.reactivestreams.Publisher<? extends org.springframework.core.io.buffer.DataBuffer>> body) { return Mono.empty(); }
     }
 }

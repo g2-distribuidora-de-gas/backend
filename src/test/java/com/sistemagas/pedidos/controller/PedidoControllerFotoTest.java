@@ -1,6 +1,5 @@
 package com.sistemagas.pedidos.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sistemagas.pedidos.dto.response.PedidoFotoResponse;
 import com.sistemagas.pedidos.exception.ResourceNotFoundException;
 import com.sistemagas.pedidos.security.JwtAuthenticationFilter;
@@ -37,9 +36,6 @@ class PedidoControllerFotoTest {
 
     @Autowired
     private MockMvc mockMvc;
-
-    @Autowired
-    private ObjectMapper objectMapper;
 
     @MockBean
     private PedidoService pedidoService;

@@ -29,6 +29,7 @@ import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
@@ -54,6 +55,7 @@ public class PedidoServiceImpl implements PedidoService {
     private final PedidoDetalleMapper pedidoDetalleMapper;
     private final GarrafaStockHelper garrafaStockHelper;
     private final SupabaseStorageService supabaseStorageService;
+    private final TransactionTemplate transactionTemplate;
 
     @Override
     @Transactional
@@ -153,12 +155,26 @@ public class PedidoServiceImpl implements PedidoService {
     }
 
     @Override
-    @Transactional
     public PedidoFotoResponse subirFoto(Long id, MultipartFile archivo, String descripcion) {
-        Pedido pedido = pedidoRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Constantes.MSG_PEDIDO_NO_ENCONTRADO));
+        if (!pedidoRepository.existsById(id)) {
+            throw new ResourceNotFoundException(Constantes.MSG_PEDIDO_NO_ENCONTRADO);
+        }
 
         String urlPublica = supabaseStorageService.subir(id, archivo, descripcion);
+
+        try {
+            return transactionTemplate.execute(status -> persistirFotoEnPedido(id, urlPublica, archivo));
+        } catch (RuntimeException ex) {
+            log.error("Fallo persistiendo la URL en el pedido id={}. Compensando: eliminando archivo {}",
+                    id, urlPublica, ex);
+            supabaseStorageService.eliminar(urlPublica);
+            throw ex;
+        }
+    }
+
+    private PedidoFotoResponse persistirFotoEnPedido(Long id, String urlPublica, MultipartFile archivo) {
+        Pedido pedido = pedidoRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(Constantes.MSG_PEDIDO_NO_ENCONTRADO));
 
         pedido.setUrlFotoEvidencia(urlPublica);
         Pedido guardado = pedidoRepository.save(pedido);

@@ -5,7 +5,7 @@ import com.sistemagas.pedidos.exception.BusinessException;
 import com.sistemagas.pedidos.service.SupabaseStorageService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.http.HttpStatusCode;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -22,7 +22,7 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
     private final WebClient webClient;
     private final SupabaseStorageProperties properties;
 
-    public SupabaseStorageServiceImpl(@Qualifier("supabaseStorageWebClient") WebClient webClient,
+    public SupabaseStorageServiceImpl(@Qualifier("supabaseStorageWebClient") @Lazy WebClient webClient,
                                       SupabaseStorageProperties properties) {
         this.webClient = webClient;
         this.properties = properties;
@@ -61,7 +61,7 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
         String objectPath = "pedido-" + pedidoId + "/" + UUID.randomUUID() + extension;
 
         try {
-            HttpStatusCode status = webClient.post()
+            webClient.post()
                     .uri("/object/{bucket}/{path}", properties.getBucket(), objectPath)
                     .header("Content-Type", contentType)
                     .header("x-upsert", "true")
@@ -73,12 +73,7 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
                                             "Error subiendo archivo a Supabase Storage ("
                                                     + resp.statusCode().value() + "): " + body)))
                     .toBodilessEntity()
-                    .map(entity -> entity.getStatusCode())
                     .block();
-
-            if (status == null || !status.is2xxSuccessful()) {
-                throw new BusinessException("Supabase Storage respondio con estado " + status);
-            }
         } catch (WebClientResponseException ex) {
             log.error("Error HTTP de Supabase Storage: status={} body={}",
                     ex.getStatusCode(), ex.getResponseBodyAsString(), ex);
@@ -111,5 +106,39 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
             case "image/webp" -> ".webp";
             default -> ".bin";
         };
+    }
+
+    @Override
+    public void eliminar(String urlPublica) {
+        if (urlPublica == null || urlPublica.isBlank()) {
+            return;
+        }
+        String objectPath = extractObjectPath(urlPublica);
+        if (objectPath == null) {
+            log.warn("No se pudo extraer objectPath de la URL publica: {}", urlPublica);
+            return;
+        }
+        try {
+            webClient.delete()
+                    .uri("/object/{bucket}/{path}", properties.getBucket(), objectPath)
+                    .retrieve()
+                    .toBodilessEntity()
+                    .block();
+            log.info("Archivo eliminado de Supabase Storage: {}", objectPath);
+        } catch (Exception ex) {
+            log.warn("Error eliminando archivo de Supabase Storage (compensacion): {}", ex.getMessage());
+        }
+    }
+
+    private String extractObjectPath(String urlPublica) {
+        String base = properties.getBaseUrl();
+        if (base == null) {
+            return null;
+        }
+        String prefix = base + "/object/public/" + properties.getBucket() + "/";
+        if (urlPublica.startsWith(prefix)) {
+            return urlPublica.substring(prefix.length());
+        }
+        return null;
     }
 }

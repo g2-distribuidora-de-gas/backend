@@ -9,6 +9,7 @@ import com.sistemagas.pedidos.repository.PedidoRepository;
 import com.sistemagas.pedidos.repository.port.GarrafaRepositoryPort;
 import com.sistemagas.pedidos.repository.port.UsuarioRepositoryPort;
 import com.sistemagas.pedidos.service.SupabaseStorageService;
+import com.sistemagas.pedidos.support.NoopTransactionManager;
 import com.sistemagas.pedidos.util.Constantes;
 import com.sistemagas.pedidos.util.GarrafaStockHelper;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,6 +19,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Optional;
@@ -28,6 +30,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -54,6 +57,8 @@ class PedidoServiceImplFotoTest {
         PedidoDetalleMapperImpl pedidoDetalleMapper = new PedidoDetalleMapperImpl();
         injectField(pedidoMapper, "pedidoDetalleMapper", pedidoDetalleMapper);
 
+        TransactionTemplate txTemplate = new TransactionTemplate(new NoopTransactionManager());
+
         service = new PedidoServiceImpl(
                 pedidoRepository,
                 garrafaRepositoryPort,
@@ -61,13 +66,14 @@ class PedidoServiceImplFotoTest {
                 pedidoMapper,
                 pedidoDetalleMapper,
                 garrafaStockHelper,
-                supabaseStorageService);
+                supabaseStorageService,
+                txTemplate);
     }
 
     @Test
     @DisplayName("subirFoto: cuando el pedido no existe lanza ResourceNotFoundException")
     void subirFoto_pedidoNoExiste_lanza404() {
-        when(pedidoRepository.findById(99L)).thenReturn(Optional.empty());
+        when(pedidoRepository.existsById(99L)).thenReturn(false);
 
         MultipartFile archivo = new MockMultipartFile(
                 "archivo", "fachada.jpg", "image/jpeg", "data".getBytes());
@@ -85,6 +91,7 @@ class PedidoServiceImplFotoTest {
                 .usuarioId(1L)
                 .direccionEntrega("Calle 1")
                 .build();
+        when(pedidoRepository.existsById(5L)).thenReturn(true);
         when(pedidoRepository.findById(5L)).thenReturn(Optional.of(pedido));
         when(pedidoRepository.save(any(Pedido.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -104,6 +111,26 @@ class PedidoServiceImplFotoTest {
         assertThat(resp.getTamanioBytes()).isEqualTo(4L);
 
         assertThat(pedido.getUrlFotoEvidencia()).isEqualTo(urlEsperada);
+    }
+
+    @Test
+    @DisplayName("subirFoto: si falla persistir la URL llama a eliminar como compensacion")
+    void subirFoto_dbFalla_compensacion() {
+        when(pedidoRepository.existsById(7L)).thenReturn(true);
+        when(pedidoRepository.findById(7L)).thenThrow(new RuntimeException("DB caida"));
+
+        String url = "https://example.supabase.co/storage/v1/object/public/pedidos-evidencia/pedido-7/abc.jpg";
+        when(supabaseStorageService.subir(eq(7L), any(MultipartFile.class), any()))
+                .thenReturn(url);
+
+        MultipartFile archivo = new MockMultipartFile(
+                "archivo", "fachada.jpg", "image/jpeg", "data".getBytes());
+
+        assertThatThrownBy(() -> service.subirFoto(7L, archivo, null))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("DB caida");
+
+        verify(supabaseStorageService).eliminar(url);
     }
 
     private void injectField(Object target, String fieldName, Object value) {

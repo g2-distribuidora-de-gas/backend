@@ -1,10 +1,10 @@
 package com.sistemagas.pedidos.config;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.http.client.HttpClient;
@@ -22,6 +22,7 @@ public class SupabaseWebClientConfig {
     }
 
     @Bean(name = "supabaseStorageWebClient")
+    @ConditionalOnProperty(name = "app.supabase.storage.enabled", havingValue = "true")
     public WebClient supabaseStorageWebClient() {
         String baseUrl = properties.getBaseUrl();
         if (baseUrl == null || baseUrl.isBlank()) {
@@ -34,8 +35,7 @@ public class SupabaseWebClientConfig {
                 .responseTimeout(Duration.ofMillis(properties.getReadTimeoutMs()));
 
         WebClient.Builder builder = WebClient.builder()
-                .baseUrl(baseUrl)
-                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_OCTET_STREAM_VALUE);
+                .baseUrl(baseUrl);
 
         if (properties.getServiceRoleKey() != null && !properties.getServiceRoleKey().isBlank()) {
             builder.defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + properties.getServiceRoleKey());
