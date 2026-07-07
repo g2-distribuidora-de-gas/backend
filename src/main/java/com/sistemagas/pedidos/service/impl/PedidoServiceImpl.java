@@ -156,10 +156,8 @@ public class PedidoServiceImpl implements PedidoService {
 
     @Override
     public PedidoFotoResponse subirFoto(Long id, MultipartFile archivo, String descripcion) {
-        if (!pedidoRepository.existsById(id)) {
-            throw new ResourceNotFoundException(Constantes.MSG_PEDIDO_NO_ENCONTRADO);
-        }
-
+        // Subimos a Storage primero. Si el pedido no existe, persistirFotoEnPedido
+        // lanza ResourceNotFoundException y la compensacion elimina el archivo huerfano.
         String urlPublica = supabaseStorageService.subir(id, archivo, descripcion);
 
         try {

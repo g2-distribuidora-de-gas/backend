@@ -55,7 +55,7 @@ public class PedidoController {
     @GetMapping("/{id}")
     @Operation(summary = "Obtener un pedido por su ID",
             description = "Retorna el detalle completo del pedido, incluyendo lineas, " +
-                    "nombre del usuario y tipo de garrafa")
+                    "nombre del cliente y tipo de garrafa")
     public ResponseEntity<ApiResponse<PedidoResponse>> obtenerPorId(
             @Parameter(description = "ID del pedido", example = "1")
             @PathVariable Long id) {

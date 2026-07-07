@@ -31,7 +31,6 @@ public class SincronizacionPedidoSaver {
     @Transactional(propagation = Propagation.MANDATORY)
     public Long guardar(PedidoRequest request, Cliente cliente, Map<Long, GarrafaModel> garrafas) {
         Pedido pedido = pedidoMapper.toEntity(request);
-        pedido.setUuidOffline(request.getUuidOffline());
         pedido.setCliente(cliente);
         pedido.setEstado(EstadoPedido.PENDIENTE);
 

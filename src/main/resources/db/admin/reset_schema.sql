@@ -26,6 +26,8 @@ DROP TABLE IF EXISTS clientes       CASCADE;
 DROP TABLE IF EXISTS garrafas       CASCADE;
 DROP TABLE IF EXISTS usuarios       CASCADE;
 
+-- (Los indices se borcan automaticamente al hacer DROP TABLE CASCADE)
+
 -- Borrar la tabla de historial de Flyway para que pueda volver a crear todo
 DROP TABLE IF EXISTS flyway_schema_history CASCADE;
 

@@ -72,9 +72,12 @@ class PedidoServiceImplFotoTest {
     }
 
     @Test
-    @DisplayName("subirFoto: cuando el pedido no existe lanza ResourceNotFoundException")
-    void subirFoto_pedidoNoExiste_lanza404() {
-        when(pedidoRepository.existsById(99L)).thenReturn(false);
+    @DisplayName("subirFoto: cuando el pedido no existe lanza ResourceNotFoundException y compensa el archivo")
+    void subirFoto_pedidoNoExiste_lanza404_yCompensa() {
+        String url = "https://example.supabase.co/storage/v1/object/public/pedidos-evidencia/pedido-99/abc.jpg";
+        when(supabaseStorageService.subir(eq(99L), any(MultipartFile.class), any()))
+                .thenReturn(url);
+        when(pedidoRepository.findById(99L)).thenReturn(Optional.empty());
 
         MultipartFile archivo = new MockMultipartFile(
                 "archivo", "fachada.jpg", "image/jpeg", "data".getBytes());
@@ -82,6 +85,8 @@ class PedidoServiceImplFotoTest {
         assertThatThrownBy(() -> service.subirFoto(99L, archivo, "desc"))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining(Constantes.MSG_PEDIDO_NO_ENCONTRADO);
+
+        verify(supabaseStorageService).eliminar(url);
     }
 
     @Test
@@ -93,7 +98,6 @@ class PedidoServiceImplFotoTest {
                 .cliente(cliente)
                 .direccionEntrega("Calle 1")
                 .build();
-        when(pedidoRepository.existsById(5L)).thenReturn(true);
         when(pedidoRepository.findById(5L)).thenReturn(Optional.of(pedido));
         when(pedidoRepository.save(any(Pedido.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -118,7 +122,6 @@ class PedidoServiceImplFotoTest {
     @Test
     @DisplayName("subirFoto: si falla persistir la URL llama a eliminar como compensacion")
     void subirFoto_dbFalla_compensacion() {
-        when(pedidoRepository.existsById(7L)).thenReturn(true);
         when(pedidoRepository.findById(7L)).thenThrow(new RuntimeException("DB caida"));
 
         String url = "https://example.supabase.co/storage/v1/object/public/pedidos-evidencia/pedido-7/abc.jpg";
