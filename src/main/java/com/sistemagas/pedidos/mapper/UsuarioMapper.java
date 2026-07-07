@@ -12,6 +12,8 @@ import org.mapstruct.MappingTarget;
 public interface UsuarioMapper {
 
     @Mapping(target = "id", ignore = true)
+    @Mapping(target = "passwordHash", ignore = true)
+    @Mapping(target = "version", ignore = true)
     Usuario toEntity(UsuarioRequest request);
 
     @Mapping(target = "nombreCompleto", ignore = true)

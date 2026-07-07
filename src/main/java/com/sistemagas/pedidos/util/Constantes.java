@@ -17,6 +17,7 @@ public final class Constantes {
 
     public static final String API_GARRAFAS = "/api/garrafas";
     public static final String API_USUARIOS = "/api/usuarios";
+    public static final String API_AUTH = "/api/auth";
 
     public static final String MSG_SINCRONIZACION_OK = "Sincronizacion procesada";
 }

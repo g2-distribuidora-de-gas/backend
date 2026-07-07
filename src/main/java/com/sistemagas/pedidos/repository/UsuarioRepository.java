@@ -15,6 +15,9 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
     Optional<Usuario> findByDni(String dni);
     boolean existsByDni(String dni);
 
+    Optional<Usuario> findByEmail(String email);
+    boolean existsByEmail(String email);
+
     List<Usuario> findByUpdatedAtGreaterThan(Instant minUpdatedAt, Pageable pageable);
     List<Usuario> findAllBy(Pageable pageable);
 }

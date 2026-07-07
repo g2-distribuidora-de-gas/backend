@@ -1,5 +1,6 @@
 package com.sistemagas.pedidos.dto.response;
 
+import com.sistemagas.pedidos.enums.RolUsuario;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -36,6 +37,12 @@ public class UsuarioResponse {
 
     @Schema(description = "Indica si el usuario está activo", example = "true")
     private Boolean activo;
+
+    @Schema(description = "Rol del usuario", example = "PREVENTISTA")
+    private RolUsuario rol;
+
+    @Schema(description = "Email del usuario", example = "juan@sistemagas.com")
+    private String email;
 
     @Schema(description = "Fecha de última modificación")
     private java.time.Instant updatedAt;

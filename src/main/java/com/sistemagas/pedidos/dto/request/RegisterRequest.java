@@ -2,9 +2,7 @@ package com.sistemagas.pedidos.dto.request;
 
 import com.sistemagas.pedidos.enums.RolUsuario;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -14,8 +12,8 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Schema(description = "DTO para la creación/actualización de un Usuario")
-public class UsuarioRequest {
+@Schema(description = "DTO para registrar un nuevo usuario en el sistema")
+public class RegisterRequest {
 
     @NotBlank(message = "El nombre no puede estar en blanco")
     @Size(max = 100, message = "El nombre no puede tener más de 100 caracteres")
@@ -40,15 +38,18 @@ public class UsuarioRequest {
     @Schema(description = "Dirección del usuario", example = "Av. Corrientes 1234")
     private String direccion;
 
-    @Schema(description = "Estado del usuario", example = "true", defaultValue = "true")
-    @Builder.Default
-    private Boolean activo = true;
-
+    @NotBlank(message = "El email es obligatorio")
     @Email(message = "El email debe tener un formato válido")
     @Size(max = 150, message = "El email no puede tener más de 150 caracteres")
-    @Schema(description = "Email del usuario", example = "juan@sistemagas.com")
+    @Schema(description = "Email para login", example = "juan@sistemagas.com")
     private String email;
 
-    @Schema(description = "Rol del usuario", example = "PREVENTISTA")
+    @NotBlank(message = "La contraseña es obligatoria")
+    @Size(min = 6, max = 100, message = "La contraseña debe tener entre 6 y 100 caracteres")
+    @Schema(description = "Contraseña del usuario", example = "password123")
+    private String password;
+
+    @NotNull(message = "El rol es obligatorio")
+    @Schema(description = "Rol a asignar al usuario", example = "PREVENTISTA")
     private RolUsuario rol;
 }

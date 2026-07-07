@@ -1,5 +1,6 @@
 package com.sistemagas.pedidos.model;
 
+import com.sistemagas.pedidos.enums.RolUsuario;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -34,4 +35,17 @@ public class Usuario extends Auditable implements UsuarioModel {
 
     @Column(nullable = false)
     private Boolean activo;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 30)
+    private RolUsuario rol;
+
+    @Column(unique = true, length = 150)
+    private String email;
+
+    @Column(name = "password_hash", length = 255)
+    private String passwordHash;
+
+    @Version
+    private Long version;
 }

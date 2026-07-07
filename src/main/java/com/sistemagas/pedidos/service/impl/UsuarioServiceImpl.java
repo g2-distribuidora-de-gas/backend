@@ -9,6 +9,7 @@ import com.sistemagas.pedidos.model.Usuario;
 import com.sistemagas.pedidos.repository.UsuarioRepository;
 import com.sistemagas.pedidos.service.UsuarioService;
 import com.sistemagas.pedidos.util.Constantes;
+import com.sistemagas.pedidos.util.RolJerarquiaHelper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessResourceFailureException;
@@ -33,6 +34,7 @@ public class UsuarioServiceImpl implements UsuarioService {
 
     private final UsuarioRepository usuarioRepository;
     private final UsuarioMapper usuarioMapper;
+    private final RolJerarquiaHelper rolJerarquiaHelper;
 
     @Override
     @Transactional(readOnly = true)
@@ -69,26 +71,33 @@ public class UsuarioServiceImpl implements UsuarioService {
 
     @Override
     @Transactional
-    public void eliminar(Long id) {
+    public void eliminar(Long id, Usuario solicitante) {
         Usuario usuario = usuarioRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(Constantes.MSG_USUARIO_NO_ENCONTRADO));
+
+        // Validar jerarquía: ADMIN no puede desactivar ADMIN/SUPER_ADMIN
+        rolJerarquiaHelper.validarPermisoModificacion(solicitante.getRol(), usuario.getRol());
+
         usuario.setActivo(false);
         usuarioRepository.save(usuario);
-        log.info("Usuario desactivado: id={}", id);
+        log.info("Usuario desactivado: id={}, por={}", id, solicitante.getEmail());
     }
 
     @Override
     @Transactional
-    public void reactivar(Long id) {
+    public void reactivar(Long id, Usuario solicitante) {
         Usuario usuario = usuarioRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(Constantes.MSG_USUARIO_NO_ENCONTRADO));
         
         if (Boolean.TRUE.equals(usuario.getActivo())) {
             throw new BusinessException("El usuario ya se encuentra activo");
         }
+
+        // Validar jerarquía: ADMIN no puede reactivar ADMIN/SUPER_ADMIN
+        rolJerarquiaHelper.validarPermisoModificacion(solicitante.getRol(), usuario.getRol());
         
         usuario.setActivo(true);
         usuarioRepository.save(usuario);
-        log.info("Usuario reactivado: id={}", id);
+        log.info("Usuario reactivado: id={}, por={}", id, solicitante.getEmail());
     }
 }
