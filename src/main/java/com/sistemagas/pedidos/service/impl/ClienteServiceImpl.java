@@ -53,7 +53,15 @@ public class ClienteServiceImpl implements ClienteService {
 
     @Override
     public List<Cliente> listarTodos() {
-        return clienteRepository.findAll();
+        return clienteRepository.findByActivoTrue();
+    }
+
+    @Override
+    @Transactional
+    public void eliminarCliente(Long id) {
+        Cliente cliente = obtenerPorId(id);
+        cliente.setActivo(false);
+        clienteRepository.save(cliente);
     }
     
     private void geocodificarSiEsNecesario(Cliente cliente) {

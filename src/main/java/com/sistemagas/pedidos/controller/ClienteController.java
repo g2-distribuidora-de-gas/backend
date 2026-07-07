@@ -59,6 +59,12 @@ public class ClienteController {
         return ResponseEntity.ok(lista);
     }
 
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> eliminar(@PathVariable Long id) {
+        clienteService.eliminarCliente(id);
+        return ResponseEntity.noContent().build();
+    }
+
     private ClienteResponse mapToResponse(Cliente cliente) {
         return ClienteResponse.builder()
                 .id(cliente.getId())
@@ -69,6 +75,7 @@ public class ClienteController {
                 .longitud(cliente.getLongitud())
                 .placeId(cliente.getPlaceId())
                 .geoActualizadoEn(cliente.getGeoActualizadoEn())
+                .activo(cliente.getActivo())
                 .build();
     }
 }

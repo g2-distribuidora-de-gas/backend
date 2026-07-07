@@ -43,4 +43,8 @@ public class Cliente extends Auditable {
 
     @Column(name = "geo_actualizado_en")
     private OffsetDateTime geoActualizadoEn;
+
+    @Builder.Default
+    @Column(nullable = false)
+    private Boolean activo = true;
 }

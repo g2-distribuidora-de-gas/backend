@@ -9,4 +9,5 @@ public interface ClienteService {
     Cliente actualizarCliente(Long id, Cliente clienteModificado);
     Cliente obtenerPorId(Long id);
     List<Cliente> listarTodos();
+    void eliminarCliente(Long id);
 }
