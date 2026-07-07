@@ -21,6 +21,7 @@ public class PedidoResponse {
     private String usuarioNombreCompleto;
     private String direccionEntrega;
     private EstadoPedido estado;
+    private String urlFotoEvidencia;
     private BigDecimal total;
     private Instant createdAt;
     private Instant updatedAt;

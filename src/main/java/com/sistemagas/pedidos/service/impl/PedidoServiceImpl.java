@@ -3,6 +3,7 @@ package com.sistemagas.pedidos.service.impl;
 import com.sistemagas.pedidos.dto.request.PedidoDetalleRequest;
 import com.sistemagas.pedidos.dto.request.PedidoRequest;
 import com.sistemagas.pedidos.dto.response.PedidoDetalleResponse;
+import com.sistemagas.pedidos.dto.response.PedidoFotoResponse;
 import com.sistemagas.pedidos.dto.response.PedidoResponse;
 import com.sistemagas.pedidos.enums.EstadoPedido;
 import com.sistemagas.pedidos.exception.BusinessException;
@@ -17,6 +18,7 @@ import com.sistemagas.pedidos.repository.PedidoRepository;
 import com.sistemagas.pedidos.repository.port.GarrafaRepositoryPort;
 import com.sistemagas.pedidos.repository.port.UsuarioRepositoryPort;
 import com.sistemagas.pedidos.service.PedidoService;
+import com.sistemagas.pedidos.service.SupabaseStorageService;
 import com.sistemagas.pedidos.util.Constantes;
 import com.sistemagas.pedidos.util.GarrafaStockHelper;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +29,7 @@ import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -50,6 +53,7 @@ public class PedidoServiceImpl implements PedidoService {
     private final PedidoMapper pedidoMapper;
     private final PedidoDetalleMapper pedidoDetalleMapper;
     private final GarrafaStockHelper garrafaStockHelper;
+    private final SupabaseStorageService supabaseStorageService;
 
     @Override
     @Transactional
@@ -146,6 +150,28 @@ public class PedidoServiceImpl implements PedidoService {
                 .orElseThrow(() -> new ResourceNotFoundException(Constantes.MSG_PEDIDO_NO_ENCONTRADO));
         pedido.setEstado(estado);
         pedidoRepository.save(pedido);
+    }
+
+    @Override
+    @Transactional
+    public PedidoFotoResponse subirFoto(Long id, MultipartFile archivo, String descripcion) {
+        Pedido pedido = pedidoRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(Constantes.MSG_PEDIDO_NO_ENCONTRADO));
+
+        String urlPublica = supabaseStorageService.subir(id, archivo, descripcion);
+
+        pedido.setUrlFotoEvidencia(urlPublica);
+        Pedido guardado = pedidoRepository.save(pedido);
+
+        log.info("Foto de evidencia asociada al pedido: id={}, url={}", guardado.getId(), urlPublica);
+
+        return PedidoFotoResponse.builder()
+                .pedidoId(guardado.getId())
+                .urlFotoEvidencia(guardado.getUrlFotoEvidencia())
+                .nombreArchivo(archivo.getOriginalFilename())
+                .contentType(archivo.getContentType())
+                .tamanioBytes(archivo.getSize())
+                .build();
     }
 
     private PedidoResponse buildResponseFor(Pedido pedido) {

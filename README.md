@@ -163,6 +163,8 @@ src/main/java/com/sistemagas/pedidos/
 | `POST` | `/api/pedidos` | Crear pedido individual |
 | `GET` | `/api/pedidos` | Listar pedidos |
 | `GET` | `/api/pedidos/{id}` | Obtener pedido por ID |
+| `PATCH` | `/api/pedidos/{id}/estado` | Actualizar estado de un pedido |
+| `POST` | `/api/pedidos/{id}/foto` | **Subir foto de fachada como evidencia visual** |
 | `GET` | `/api/pedidos/uuid/{uuidOffline}` | Buscar pedido por UUID offline |
 | `POST` | `/api/garrafas` | Crear garrafa |
 | `GET` | `/api/garrafas` | Listar garrafas |
@@ -225,6 +227,77 @@ POST /api/sincronizar
 ```bash
 mvn test
 ```
+
+## Evidencia visual (foto de fachada)
+
+Cada pedido puede llevar asociada una foto de fachada como evidencia visual. El backend
+actua como **proxy seguro** entre el cliente y Supabase Storage, exponiendo un unico
+endpoint REST que sube el archivo, lo persiste y devuelve la URL publica.
+
+### Flujo
+
+1. El cliente envia `multipart/form-data` al endpoint `POST /api/pedidos/{id}/foto` con el
+   campo `archivo` (la imagen) y opcionalmente `descripcion` (texto libre).
+2. El backend valida tipo (jpg/png/webp) y tamano (default 10MB).
+3. Se sube al bucket de Supabase Storage usando la `service_role_key` (bypasea RLS).
+4. La URL publica devuelta se guarda en la columna `pedidos.url_foto_evidencia`.
+5. La respuesta incluye `pedidoId`, `urlFotoEvidencia`, `nombreArchivo`, `contentType` y `tamanioBytes`.
+
+### Ejemplo con cURL
+
+```bash
+curl -X POST http://localhost:8080/api/pedidos/42/foto \
+  -H "Authorization: Bearer <JWT>" \
+  -F "archivo=@/path/fachada.jpg" \
+  -F "descripcion=Fachada principal"
+```
+
+### Variables de entorno
+
+```bash
+SUPABASE_STORAGE_ENABLED=true
+SUPABASE_STORAGE_PROJECT_REF=mqklsftjyesuiazsmuin  # opcional si defines PUBLIC_BASE_URL
+SUPABASE_SERVICE_ROLE_KEY=<service-role-jwt>        # NO anon key (la mas privilegiada)
+SUPABASE_STORAGE_BUCKET=pedidos-evidencia
+SUPABASE_STORAGE_PUBLIC_BASE_URL=                   # opcional, se infiere del project ref
+SUPABASE_STORAGE_MAX_FILE_SIZE_BYTES=10485760       # 10MB
+```
+
+> **Importante:** nunca expongas la `SUPABASE_SERVICE_ROLE_KEY` al frontend. El backend la
+> usa internamente para bypasear RLS al subir archivos al bucket. Configurala solo en el
+> `.env` del backend.
+
+### Crear el bucket en Supabase
+
+La primera vez, crear el bucket publico desde la consola o por SQL:
+
+```sql
+-- Crear bucket publico para evidencias
+insert into storage.buckets (id, name, public)
+values ('pedidos-evidencia', 'pedidos-evidencia', true)
+on conflict (id) do nothing;
+
+-- Policy publica de lectura para todos (los uploads los hace el backend con service_role)
+create policy "lectura publica de evidencias"
+on storage.objects for select
+using ( bucket_id = 'pedidos-evidencia' );
+```
+
+### Limites multipart
+
+Configurados en `application.yml` (sobrescribibles por perfil):
+
+```yaml
+spring:
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 10MB
+      max-request-size: 12MB
+```
+
+Si el archivo excede el limite, el backend devuelve `413 Payload Too Large`. Si el tipo
+no es permitido, devuelve `400 Bad Request`.
 
 ## Build para produccion
 

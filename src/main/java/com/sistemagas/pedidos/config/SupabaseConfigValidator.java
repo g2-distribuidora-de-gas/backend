@@ -96,6 +96,45 @@ public class SupabaseConfigValidator implements EnvironmentPostProcessor {
         System.out.println("=================================================");
         System.out.println();
 
+        boolean storageEnabled = Boolean.parseBoolean(
+                environment.getProperty("app.supabase.storage.enabled", "false"));
+        if (storageEnabled) {
+            String serviceKey = environment.getProperty("app.supabase.storage.service-role-key");
+            String bucket = environment.getProperty("app.supabase.storage.bucket");
+            String storageProjectRef = environment.getProperty("app.supabase.storage.project-ref");
+            String storagePublicBaseUrl = environment.getProperty("app.supabase.storage.public-base-url");
+            List<String> erroresStorage = new ArrayList<>();
+
+            if (serviceKey == null || serviceKey.isBlank() || serviceKey.contains("undefined")) {
+                erroresStorage.add("SUPABASE_SERVICE_ROLE_KEY no esta configurada (requerida cuando storage.enabled=true)");
+            }
+            if (bucket == null || bucket.isBlank()) {
+                erroresStorage.add("SUPABASE_STORAGE_BUCKET no esta configurada");
+            }
+            if ((storageProjectRef == null || storageProjectRef.isBlank())
+                    && (storagePublicBaseUrl == null || storagePublicBaseUrl.isBlank())) {
+                erroresStorage.add("Debes definir SUPABASE_PROJECT_REF o SUPABASE_STORAGE_PUBLIC_BASE_URL");
+            }
+
+            if (!erroresStorage.isEmpty()) {
+                System.err.println();
+                System.err.println("=================================================");
+                System.err.println("ERROR: Configuracion de Supabase Storage invalida");
+                System.err.println("=================================================");
+                for (String e : erroresStorage) {
+                    System.err.println("  - " + e);
+                }
+                System.err.println("=================================================");
+                throw new IllegalStateException(
+                        "Configuracion de Supabase Storage invalida: " + String.join("; ", erroresStorage));
+            }
+
+            System.out.println("Configuracion de Supabase Storage validada (PROD)");
+            System.out.println("  Bucket: " + bucket);
+        } else {
+            System.out.println("Supabase Storage deshabilitado (app.supabase.storage.enabled=false)");
+        }
+
         props.put("app.supabase.validated", "true");
         environment.getPropertySources().addFirst(new MapPropertySource(PROPERTY_SOURCE_NAME, props));
     }

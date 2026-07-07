@@ -26,6 +26,9 @@ public class PedidoRequest {
     @Size(max = 300)
     private String direccionEntrega;
 
+    @Size(max = 1000)
+    private String urlFotoEvidencia;
+
     @NotEmpty(message = "El pedido debe tener al menos un detalle")
     @Valid
     private List<PedidoDetalleRequest> detalles;

@@ -61,3 +61,15 @@ logging:
     com.sistemagas.pedidos: INFO
     org.hibernate.SQL: WARN
     com.zaxxer.hikari: INFO
+
+app:
+  supabase:
+    storage:
+      enabled: ${SUPABASE_STORAGE_ENABLED:false}
+      project-ref: ${SUPABASE_PROJECT_REF:}
+      service-role-key: ${SUPABASE_SERVICE_ROLE_KEY:}
+      bucket: ${SUPABASE_STORAGE_BUCKET:pedidos-evidencia}
+      public-base-url: ${SUPABASE_STORAGE_PUBLIC_BASE_URL:}
+      max-file-size-bytes: ${SUPABASE_STORAGE_MAX_FILE_SIZE_BYTES:10485760}
+      connect-timeout-ms: 5000
+      read-timeout-ms: 15000
