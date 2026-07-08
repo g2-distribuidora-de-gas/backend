@@ -27,15 +27,16 @@ public class LocationIQGeocodingServiceImpl implements GeocodingService {
     @Override
     public LocationDto obtenerCoordenadas(String direccion) {
         try {
-            String url = UriComponentsBuilder.fromHttpUrl(properties.getGeocodingUrl())
+            java.net.URI uri = UriComponentsBuilder.fromHttpUrl(properties.getGeocodingUrl())
                     .queryParam("key", properties.getApiKey())
                     .queryParam("q", direccion)
                     .queryParam("format", "json")
                     .queryParam("limit", 1)
-                    .toUriString();
+                    .build()
+                    .toUri();
 
             ResponseEntity<List<Map<String, Object>>> response = restTemplate.exchange(
-                    url,
+                    uri,
                     HttpMethod.GET,
                     null,
                     new ParameterizedTypeReference<List<Map<String, Object>>>() {}
@@ -44,11 +45,22 @@ public class LocationIQGeocodingServiceImpl implements GeocodingService {
             List<Map<String, Object>> body = response.getBody();
             if (body != null && !body.isEmpty()) {
                 Map<String, Object> bestMatch = body.get(0);
+                
+                Object placeIdObj = bestMatch.get("place_id");
+                Object latObj = bestMatch.get("lat");
+                Object lonObj = bestMatch.get("lon");
+                Object precisionObj = bestMatch.get("class");
+                
+                String placeId = placeIdObj != null ? String.valueOf(placeIdObj) : null;
+                String latStr = latObj != null ? String.valueOf(latObj) : null;
+                String lonStr = lonObj != null ? String.valueOf(lonObj) : null;
+                String precision = precisionObj != null ? String.valueOf(precisionObj) : null;
+
                 return LocationDto.builder()
-                        .placeId(String.valueOf(bestMatch.get("place_id")))
-                        .latitud(new BigDecimal(String.valueOf(bestMatch.get("lat"))))
-                        .longitud(new BigDecimal(String.valueOf(bestMatch.get("lon"))))
-                        .precision(String.valueOf(bestMatch.get("class")))
+                        .placeId(placeId)
+                        .latitud(latStr != null ? new BigDecimal(latStr) : null)
+                        .longitud(lonStr != null ? new BigDecimal(lonStr) : null)
+                        .precision(precision)
                         .build();
             }
 
