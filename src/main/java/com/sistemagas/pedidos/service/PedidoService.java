@@ -20,5 +20,11 @@ public interface PedidoService {
 
     void actualizarEstado(Long id, com.sistemagas.pedidos.enums.EstadoPedido estado);
 
+    /**
+     * @deprecated desde V11 la foto se asocia al cliente, no al pedido.
+     *             Mantenido temporalmente para compatibilidad de la app mobile.
+     *             Migrar a {@code ClienteFotoService}.
+     */
+    @Deprecated
     PedidoFotoResponse subirFoto(Long id, MultipartFile archivo, String descripcion);
 }

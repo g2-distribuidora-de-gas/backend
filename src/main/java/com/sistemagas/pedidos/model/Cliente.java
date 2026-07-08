@@ -47,4 +47,7 @@ public class Cliente extends Auditable {
     @Builder.Default
     @Column(nullable = false)
     private Boolean activo = true;
+
+    @Column(name = "foto_evidencia_path", length = 500)
+    private String fotoEvidenciaPath;
 }

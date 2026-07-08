@@ -155,33 +155,36 @@ public class PedidoServiceImpl implements PedidoService {
     }
 
     @Override
+    @Deprecated
     public PedidoFotoResponse subirFoto(Long id, MultipartFile archivo, String descripcion) {
-        // Subimos a Storage primero. Si el pedido no existe, persistirFotoEnPedido
-        // lanza ResourceNotFoundException y la compensacion elimina el archivo huerfano.
-        String urlPublica = supabaseStorageService.subir(id, archivo, descripcion);
+        log.warn("DEPRECATED: POST /api/pedidos/{{}}/foto debe migrarse a POST /api/clientes/{{clienteId}}/foto. "
+                + "Esta llamada se mantiene por compatibilidad de la app mobile hasta que actualice.", id);
+
+        Pedido pedido = pedidoRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(Constantes.MSG_PEDIDO_NO_ENCONTRADO));
+
+        String objectPath = supabaseStorageService.subir(id, archivo, descripcion);
 
         try {
-            return transactionTemplate.execute(status -> persistirFotoEnPedido(id, urlPublica, archivo));
+            return transactionTemplate.execute(status ->
+                    buildLegacyFotoResponse(pedido, objectPath, archivo));
         } catch (RuntimeException ex) {
-            log.error("Fallo persistiendo la URL en el pedido id={}. Compensando: eliminando archivo {}",
-                    id, urlPublica, ex);
-            supabaseStorageService.eliminar(urlPublica);
+            log.error("Fallo generando signed URL para foto legacy del pedido id={}. Compensando: eliminando {}",
+                    id, objectPath, ex);
+            supabaseStorageService.eliminar(objectPath);
             throw ex;
         }
     }
 
-    private PedidoFotoResponse persistirFotoEnPedido(Long id, String urlPublica, MultipartFile archivo) {
-        Pedido pedido = pedidoRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Constantes.MSG_PEDIDO_NO_ENCONTRADO));
+    private PedidoFotoResponse buildLegacyFotoResponse(Pedido pedido, String objectPath, MultipartFile archivo) {
+        String signedUrl = supabaseStorageService.getSignedUrl(objectPath);
 
-        pedido.setUrlFotoEvidencia(urlPublica);
-        Pedido guardado = pedidoRepository.save(pedido);
-
-        log.info("Foto de evidencia asociada al pedido: id={}, url={}", guardado.getId(), urlPublica);
+        log.info("Foto de evidencia legacy servida (no persistida en DB) para pedido id={}, objectPath={}",
+                pedido.getId(), objectPath);
 
         return PedidoFotoResponse.builder()
-                .pedidoId(guardado.getId())
-                .urlFotoEvidencia(guardado.getUrlFotoEvidencia())
+                .pedidoId(pedido.getId())
+                .urlFotoEvidencia(signedUrl)
                 .nombreArchivo(archivo.getOriginalFilename())
                 .contentType(archivo.getContentType())
                 .tamanioBytes(archivo.getSize())
@@ -201,6 +204,11 @@ public class PedidoServiceImpl implements PedidoService {
 
     private PedidoResponse buildResponse(Pedido pedido, Cliente cliente, Map<Long, GarrafaModel> garrafas) {
         PedidoResponse response = pedidoMapper.toResponse(pedido);
+
+        if (cliente != null && cliente.getFotoEvidenciaPath() != null) {
+            response.setUrlFotoEvidencia(
+                    supabaseStorageService.getSignedUrl(cliente.getFotoEvidenciaPath()));
+        }
 
         List<PedidoDetalleResponse> detalles = new ArrayList<>();
         for (PedidoDetalle d : pedido.getDetalles()) {

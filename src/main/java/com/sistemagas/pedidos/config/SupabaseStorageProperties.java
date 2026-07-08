@@ -15,7 +15,9 @@ public class SupabaseStorageProperties {
     private String projectRef;
     private String serviceRoleKey;
     private String bucket = "pedidos-evidencia";
+    @Deprecated
     private String publicBaseUrl;
+    private int signedUrlTtlSeconds = 3600;
     private long maxFileSizeBytes = 10L * 1024L * 1024L;
     private List<String> allowedContentTypes = List.of("image/jpeg", "image/png", "image/webp");
     private int connectTimeoutMs = 5000;
@@ -31,6 +33,7 @@ public class SupabaseStorageProperties {
         return "https://" + projectRef + ".supabase.co/storage/v1";
     }
 
+    @Deprecated
     public String getPublicUrl(String objectPath) {
         if (objectPath == null || objectPath.isBlank()) {
             return null;

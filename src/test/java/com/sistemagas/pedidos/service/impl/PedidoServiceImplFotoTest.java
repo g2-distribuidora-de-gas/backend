@@ -1,6 +1,7 @@
 package com.sistemagas.pedidos.service.impl;
 
 import com.sistemagas.pedidos.dto.response.PedidoFotoResponse;
+import com.sistemagas.pedidos.exception.BusinessException;
 import com.sistemagas.pedidos.exception.ResourceNotFoundException;
 import com.sistemagas.pedidos.mapper.PedidoDetalleMapperImpl;
 import com.sistemagas.pedidos.mapper.PedidoMapperImpl;
@@ -31,6 +32,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -71,11 +73,8 @@ class PedidoServiceImplFotoTest {
     }
 
     @Test
-    @DisplayName("subirFoto: cuando el pedido no existe lanza ResourceNotFoundException y compensa el archivo")
-    void subirFoto_pedidoNoExiste_lanza404_yCompensa() {
-        String url = "https://example.supabase.co/storage/v1/object/public/pedidos-evidencia/pedido-99/abc.jpg";
-        when(supabaseStorageService.subir(eq(99L), any(MultipartFile.class), any()))
-                .thenReturn(url);
+    @DisplayName("subirFoto: cuando el pedido no existe lanza ResourceNotFoundException y no sube nada")
+    void subirFoto_pedidoNoExiste_lanza404() {
         when(pedidoRepository.findById(99L)).thenReturn(Optional.empty());
 
         MultipartFile archivo = new MockMultipartFile(
@@ -85,12 +84,13 @@ class PedidoServiceImplFotoTest {
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining(Constantes.MSG_PEDIDO_NO_ENCONTRADO);
 
-        verify(supabaseStorageService).eliminar(url);
+        verify(supabaseStorageService, never()).subir(any(Long.class), any(MultipartFile.class), any());
+        verify(supabaseStorageService, never()).eliminar(anyString());
     }
 
     @Test
-    @DisplayName("subirFoto: sube el archivo, persiste la URL en el pedido y devuelve el DTO")
-    void subirFoto_ok_persisteUrl() {
+    @DisplayName("subirFoto: [DEPRECATED] sube el archivo, devuelve signed URL pero NO persiste en el pedido")
+    void subirFoto_ok_devuelveSignedUrlNoPersiste() {
         Cliente cliente = Cliente.builder().id(1L).nombre("Juan").direccion("Calle 1").build();
         Pedido pedido = Pedido.builder()
                 .id(5L)
@@ -98,11 +98,13 @@ class PedidoServiceImplFotoTest {
                 .direccionEntrega("Calle 1")
                 .build();
         when(pedidoRepository.findById(5L)).thenReturn(Optional.of(pedido));
-        when(pedidoRepository.save(any(Pedido.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        String urlEsperada = "https://example.supabase.co/storage/v1/object/public/pedidos-evidencia/pedido-5/abc.jpg";
+        String objectPath = "pedido-5/abc-uuid.jpg";
         when(supabaseStorageService.subir(eq(5L), any(MultipartFile.class), anyString()))
-                .thenReturn(urlEsperada);
+                .thenReturn(objectPath);
+
+        String signedUrl = "https://example.supabase.co/storage/v1/object/sign/pedidos-evidencia/pedido-5/abc-uuid.jpg?token=xxx";
+        when(supabaseStorageService.getSignedUrl(objectPath)).thenReturn(signedUrl);
 
         MultipartFile archivo = new MockMultipartFile(
                 "archivo", "fachada.jpg", "image/jpeg", "data".getBytes());
@@ -110,31 +112,39 @@ class PedidoServiceImplFotoTest {
         PedidoFotoResponse resp = service.subirFoto(5L, archivo, "fachada principal");
 
         assertThat(resp.getPedidoId()).isEqualTo(5L);
-        assertThat(resp.getUrlFotoEvidencia()).isEqualTo(urlEsperada);
+        assertThat(resp.getUrlFotoEvidencia()).isEqualTo(signedUrl);
         assertThat(resp.getNombreArchivo()).isEqualTo("fachada.jpg");
         assertThat(resp.getContentType()).isEqualTo("image/jpeg");
         assertThat(resp.getTamanioBytes()).isEqualTo(4L);
 
-        assertThat(pedido.getUrlFotoEvidencia()).isEqualTo(urlEsperada);
+        verify(pedidoRepository, never()).save(any(Pedido.class));
     }
 
     @Test
-    @DisplayName("subirFoto: si falla persistir la URL llama a eliminar como compensacion")
-    void subirFoto_dbFalla_compensacion() {
-        when(pedidoRepository.findById(7L)).thenThrow(new RuntimeException("DB caida"));
+    @DisplayName("subirFoto: si falla generar la signed URL llama a eliminar como compensacion")
+    void subirFoto_signedUrlFalla_compensacion() {
+        Cliente cliente = Cliente.builder().id(1L).nombre("Juan").direccion("Calle 1").build();
+        Pedido pedido = Pedido.builder()
+                .id(7L)
+                .cliente(cliente)
+                .direccionEntrega("Calle 1")
+                .build();
+        when(pedidoRepository.findById(7L)).thenReturn(Optional.of(pedido));
 
-        String url = "https://example.supabase.co/storage/v1/object/public/pedidos-evidencia/pedido-7/abc.jpg";
+        String objectPath = "pedido-7/abc-uuid.jpg";
         when(supabaseStorageService.subir(eq(7L), any(MultipartFile.class), any()))
-                .thenReturn(url);
+                .thenReturn(objectPath);
+        when(supabaseStorageService.getSignedUrl(objectPath))
+                .thenThrow(new BusinessException("Storage caido"));
 
         MultipartFile archivo = new MockMultipartFile(
                 "archivo", "fachada.jpg", "image/jpeg", "data".getBytes());
 
         assertThatThrownBy(() -> service.subirFoto(7L, archivo, null))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("DB caida");
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Storage caido");
 
-        verify(supabaseStorageService).eliminar(url);
+        verify(supabaseStorageService).eliminar(objectPath);
     }
 
     private void injectField(Object target, String fieldName, Object value) {

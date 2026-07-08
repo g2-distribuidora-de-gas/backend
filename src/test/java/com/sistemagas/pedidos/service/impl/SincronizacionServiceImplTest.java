@@ -17,6 +17,7 @@ import com.sistemagas.pedidos.model.Cliente;
 import com.sistemagas.pedidos.repository.ClienteRepository;
 import com.sistemagas.pedidos.repository.PedidoRepository;
 import com.sistemagas.pedidos.repository.port.GarrafaRepositoryPort;
+import com.sistemagas.pedidos.service.ClienteFotoService;
 import com.sistemagas.pedidos.util.Constantes;
 import com.sistemagas.pedidos.util.GarrafaStockHelper;
 import org.junit.jupiter.api.BeforeEach;
@@ -48,6 +49,9 @@ class SincronizacionServiceImplTest {
     @Mock
     private ClienteRepository clienteRepository;
 
+    @Mock
+    private ClienteFotoService clienteFotoService;
+
     private PedidoMapper pedidoMapper;
     private PedidoDetalleMapper pedidoDetalleMapper;
     private GarrafaStockHelper garrafaStockHelper;
@@ -76,7 +80,7 @@ class SincronizacionServiceImplTest {
         SincronizacionPedidoSaver pedidoSaver = new SincronizacionPedidoSaver(
                 pedidoRepository, garrafaRepositoryPort, pedidoMapper, garrafaStockHelper);
         SincronizacionPedidoProcessor pedidoProcessor = new SincronizacionPedidoProcessor(
-                clienteRepository, garrafaStockHelper, pedidoSaver);
+                clienteRepository, garrafaStockHelper, pedidoSaver, clienteFotoService);
 
         service = new SincronizacionServiceImpl(pedidoRepository, pedidoProcessor);
     }

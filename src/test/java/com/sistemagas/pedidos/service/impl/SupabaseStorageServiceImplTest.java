@@ -99,15 +99,14 @@ class SupabaseStorageServiceImplTest {
     }
 
     @Test
-    @DisplayName("subir: con respuesta 2xx del WebClient devuelve la URL publica del bucket")
-    void subir_ok_retornaUrlPublica() {
+    @DisplayName("subir: con respuesta 2xx del WebClient devuelve el object path (no la URL publica)")
+    void subir_ok_retornaObjectPath() {
         stubWebClientOk();
 
-        String url = service.subir(42L, jpeg(), "Fachada principal");
-        assertThat(url)
-                .startsWith("https://test-project-ref.supabase.co/storage/v1/object/public/pedidos-evidencia/pedido-42/")
+        String objectPath = service.subir(42L, jpeg(), "Fachada principal");
+        assertThat(objectPath)
+                .startsWith("pedido-42/")
                 .endsWith(".jpg");
-        assertThat(url).contains("pedido-42");
     }
 
     @Test

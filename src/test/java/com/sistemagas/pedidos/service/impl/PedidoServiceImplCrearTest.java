@@ -88,8 +88,8 @@ class PedidoServiceImplCrearTest {
     }
 
     @Test
-    @DisplayName("crear: persiste urlFotoEvidencia cuando viene en el request")
-    void crear_persisteUrlFotoEvidencia() {
+    @DisplayName("crear: ignora urlFotoEvidencia del request (la foto ahora se asocia al cliente)")
+    void crear_urlFotoEvidenciaEnRequestSeIgnora() {
         String urlFoto = "https://example.supabase.co/storage/v1/object/public/pedidos-evidencia/pedido-1/abc.jpg";
 
         PedidoRequest req = PedidoRequest.builder()
@@ -114,13 +114,12 @@ class PedidoServiceImplCrearTest {
 
         ArgumentCaptor<Pedido> captor = ArgumentCaptor.forClass(Pedido.class);
         verify(pedidoRepository).save(captor.capture());
-        assertThat(captor.getValue().getUrlFotoEvidencia()).isEqualTo(urlFoto);
         assertThat(captor.getValue().getCliente()).isEqualTo(cliente);
     }
 
     @Test
-    @DisplayName("crear: tolera urlFotoEvidencia null (no rompe)")
-    void crear_urlFotoEvidenciaNull_noRompe() {
+    @DisplayName("crear: persiste el pedido con cliente y detalles correctos")
+    void crear_pedidoOk_persiste() {
         PedidoRequest req = PedidoRequest.builder()
                 .uuidOffline("uuid-1")
                 .clienteId(1L)
@@ -138,7 +137,8 @@ class PedidoServiceImplCrearTest {
 
         ArgumentCaptor<Pedido> captor = ArgumentCaptor.forClass(Pedido.class);
         verify(pedidoRepository).save(captor.capture());
-        assertThat(captor.getValue().getUrlFotoEvidencia()).isNull();
+        assertThat(captor.getValue().getCliente()).isEqualTo(cliente);
+        assertThat(captor.getValue().getDetalles()).hasSize(1);
     }
 
     @Test

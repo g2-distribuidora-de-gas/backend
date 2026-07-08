@@ -4,6 +4,7 @@ import com.sistemagas.pedidos.dto.request.SincronizacionRequest;
 import com.sistemagas.pedidos.dto.response.ApiResponse;
 import com.sistemagas.pedidos.dto.response.SincronizacionEstadoResponse;
 import com.sistemagas.pedidos.dto.response.SincronizacionResponse;
+import com.sistemagas.pedidos.service.ClienteFotoService;
 import com.sistemagas.pedidos.service.SincronizacionService;
 import com.sistemagas.pedidos.util.Constantes;
 import io.swagger.v3.oas.annotations.Operation;
@@ -11,9 +12,12 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -24,6 +28,7 @@ import java.util.List;
 public class SincronizacionController {
 
     private final SincronizacionService sincronizacionService;
+    private final ClienteFotoService clienteFotoService;
 
     @PostMapping
     @PreAuthorize("hasAnyRole('PREVENTISTA', 'ADMIN', 'SUPER_ADMIN')")
@@ -47,4 +52,23 @@ public class SincronizacionController {
             @RequestParam("uuids") List<String> uuids) {
         return ResponseEntity.ok(ApiResponse.ok(sincronizacionService.consultarEstado(uuids)));
     }
+
+    @PostMapping(path = "/clientes/imagenes", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('PREVENTISTA', 'ADMIN', 'SUPER_ADMIN')")
+    @Operation(summary = "Subir imagen pendiente de un cliente (flujo offline)",
+            description = "Recibe la foto de fachada de un cliente como multipart. "
+                    + "La imagen queda en cliente-pending/{clienteId}/... y se asocia automaticamente "
+                    + "cuando un pedido de ese cliente se sincroniza via POST /api/sincronizacion. "
+                    + "Retorna 409 Conflict si el cliente ya tiene foto o una imagen pendiente.")
+    public ResponseEntity<ApiResponse<ImagenPendienteResponse>> subirImagenCliente(
+            @RequestParam("clienteId") Long clienteId,
+            @RequestParam("archivo") MultipartFile archivo,
+            @RequestParam(value = "descripcion", required = false) String descripcion) {
+        String objectPath = clienteFotoService.subirImagenPendiente(clienteId, archivo, descripcion);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.ok(new ImagenPendienteResponse(clienteId, objectPath),
+                        "Imagen pendiente subida. Se asociara al sincronizar un pedido del cliente."));
+    }
+
+    public record ImagenPendienteResponse(Long clienteId, String objectPath) {}
 }

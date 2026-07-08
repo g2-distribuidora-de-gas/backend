@@ -41,9 +41,6 @@ public class Pedido extends Auditable {
     @Column(name = "estado", nullable = false, length = 30)
     private EstadoPedido estado;
 
-    @Column(name = "url_foto_evidencia", length = 1000)
-    private String urlFotoEvidencia;
-
     @OneToMany(mappedBy = "pedido", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
     private List<PedidoDetalle> detalles = new ArrayList<>();

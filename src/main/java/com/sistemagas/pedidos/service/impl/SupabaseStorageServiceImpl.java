@@ -13,6 +13,7 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 
 import java.io.IOException;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 
 @Slf4j
@@ -29,37 +30,158 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
     }
 
     @Override
+    public String subir(String prefijoPath, MultipartFile archivo, String descripcion) {
+        validarStorageHabilitado();
+        validarArchivo(archivo);
+
+        byte[] contenido = leerBytes(archivo);
+        String contentType = archivo.getContentType();
+        String extension = extensionFromContentType(contentType);
+        String objectPath = prefijoPath + "/" + UUID.randomUUID() + extension;
+
+        subirBytes(objectPath, contenido, contentType);
+        log.info("Archivo subido a Supabase Storage: objectPath={}, descripcion={}", objectPath, descripcion);
+        return objectPath;
+    }
+
+    @Override
+    @Deprecated
     public String subir(Long pedidoId, MultipartFile archivo, String descripcion) {
+        return subir("pedido-" + pedidoId, archivo, descripcion);
+    }
+
+    @Override
+    public void eliminar(String objectPath) {
+        if (objectPath == null || objectPath.isBlank()) {
+            return;
+        }
+        try {
+            webClient.delete()
+                    .uri("/object/{bucket}/{path}", properties.getBucket(), objectPath)
+                    .retrieve()
+                    .toBodilessEntity()
+                    .block();
+            log.info("Archivo eliminado de Supabase Storage: {}", objectPath);
+        } catch (Exception ex) {
+            log.warn("Error eliminando archivo de Supabase Storage (compensacion): {}", ex.getMessage());
+        }
+    }
+
+    @Override
+    public String getSignedUrl(String objectPath) {
+        return getSignedUrl(objectPath, properties.getSignedUrlTtlSeconds());
+    }
+
+    @Override
+    public String getSignedUrl(String objectPath, int ttlSeconds) {
+        if (objectPath == null || objectPath.isBlank()) {
+            return null;
+        }
+        if (!properties.isEnabled()) {
+            log.warn("getSignedUrl llamado pero Supabase Storage esta deshabilitado. objectPath={}", objectPath);
+            return null;
+        }
+        try {
+            Map<String, Object> body = Map.of("expiresIn", ttlSeconds);
+            @SuppressWarnings("unchecked")
+            Map<String, Object> response = webClient.post()
+                    .uri("/object/sign/{bucket}/{path}", properties.getBucket(), objectPath)
+                    .bodyValue(body)
+                    .retrieve()
+                    .onStatus(s -> s.isError(), resp ->
+                            resp.bodyToMono(String.class).defaultIfEmpty("")
+                                    .map(b -> new BusinessException(
+                                            "Error generando signed URL de Supabase Storage ("
+                                                    + resp.statusCode().value() + "): " + b)))
+                    .bodyToMono(Map.class)
+                    .block();
+
+            if (response == null) {
+                throw new BusinessException("Respuesta vacia de Supabase Storage al generar signed URL");
+            }
+            String signedUrl = (String) response.get("signedURL");
+            if (signedUrl == null || signedUrl.isBlank()) {
+                throw new BusinessException("Supabase Storage no devolvio signedURL en la respuesta");
+            }
+            return signedUrl;
+        } catch (BusinessException ex) {
+            throw ex;
+        } catch (WebClientResponseException ex) {
+            log.error("Error HTTP de Supabase Storage al generar signed URL: status={} body={}",
+                    ex.getStatusCode(), ex.getResponseBodyAsString(), ex);
+            throw new BusinessException("Error generando signed URL: " + ex.getMessage());
+        } catch (Exception ex) {
+            log.error("Error inesperado generando signed URL de Supabase Storage", ex);
+            throw new BusinessException("Error generando signed URL: " + ex.getMessage());
+        }
+    }
+
+    @Override
+    public void mover(String sourcePath, String destPath) {
+        if (sourcePath == null || sourcePath.isBlank()
+                || destPath == null || destPath.isBlank()) {
+            throw new BusinessException("sourcePath y destPath son obligatorios para mover");
+        }
+        try {
+            Map<String, String> body = Map.of(
+                    "bucketId", properties.getBucket(),
+                    "sourceKey", sourcePath,
+                    "destinationKey", destPath
+            );
+            webClient.post()
+                    .uri("/object/move")
+                    .bodyValue(body)
+                    .retrieve()
+                    .onStatus(s -> s.isError(), resp ->
+                            resp.bodyToMono(String.class).defaultIfEmpty("")
+                                    .map(b -> new BusinessException(
+                                            "Error moviendo archivo en Supabase Storage ("
+                                                    + resp.statusCode().value() + "): " + b)))
+                    .toBodilessEntity()
+                    .block();
+            log.info("Archivo movido en Supabase Storage: {} -> {}", sourcePath, destPath);
+        } catch (BusinessException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            log.error("Error inesperado moviendo archivo en Supabase Storage: {} -> {}",
+                    sourcePath, destPath, ex);
+            throw new BusinessException("Error moviendo archivo en Supabase Storage: " + ex.getMessage());
+        }
+    }
+
+    private void validarStorageHabilitado() {
         if (!properties.isEnabled()) {
             throw new BusinessException(
                     "Supabase Storage esta deshabilitado. Habilitalo en app.supabase.storage.enabled=true.");
         }
+    }
+
+    private void validarArchivo(MultipartFile archivo) {
         if (archivo == null || archivo.isEmpty()) {
             throw new BusinessException("El archivo es obligatorio");
         }
-
         String contentType = archivo.getContentType();
-        if (contentType == null || !properties.getAllowedContentTypes().contains(contentType.toLowerCase(Locale.ROOT))) {
+        if (contentType == null
+                || !properties.getAllowedContentTypes().contains(contentType.toLowerCase(Locale.ROOT))) {
             throw new BusinessException(
                     "Tipo de archivo no permitido. Permitidos: " + properties.getAllowedContentTypes());
         }
-
         if (archivo.getSize() > properties.getMaxFileSizeBytes()) {
             throw new BusinessException(
                     "El archivo excede el tamano maximo permitido ("
                             + (properties.getMaxFileSizeBytes() / 1024L / 1024L) + " MB).");
         }
+    }
 
-        byte[] contenido;
+    private byte[] leerBytes(MultipartFile archivo) {
         try {
-            contenido = archivo.getBytes();
+            return archivo.getBytes();
         } catch (IOException ex) {
             throw new BusinessException("No se pudo leer el archivo: " + ex.getMessage());
         }
+    }
 
-        String extension = extensionFromContentType(contentType);
-        String objectPath = "pedido-" + pedidoId + "/" + UUID.randomUUID() + extension;
-
+    private void subirBytes(String objectPath, byte[] contenido, String contentType) {
         try {
             webClient.post()
                     .uri("/object/{bucket}/{path}", properties.getBucket(), objectPath)
@@ -84,16 +206,6 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
             log.error("Error inesperado subiendo archivo a Supabase Storage", ex);
             throw new BusinessException("Error subiendo archivo a Supabase Storage: " + ex.getMessage());
         }
-
-        String urlPublica = properties.getPublicUrl(objectPath);
-        if (urlPublica == null) {
-            throw new BusinessException("No se pudo construir la URL publica del archivo.");
-        }
-
-        log.info("Foto de evidencia subida a Supabase Storage: pedidoId={}, objectPath={}, descripcion={}",
-                pedidoId, objectPath, descripcion);
-
-        return urlPublica;
     }
 
     private String extensionFromContentType(String contentType) {
@@ -106,39 +218,5 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
             case "image/webp" -> ".webp";
             default -> ".bin";
         };
-    }
-
-    @Override
-    public void eliminar(String urlPublica) {
-        if (urlPublica == null || urlPublica.isBlank()) {
-            return;
-        }
-        String objectPath = extractObjectPath(urlPublica);
-        if (objectPath == null) {
-            log.warn("No se pudo extraer objectPath de la URL publica: {}", urlPublica);
-            return;
-        }
-        try {
-            webClient.delete()
-                    .uri("/object/{bucket}/{path}", properties.getBucket(), objectPath)
-                    .retrieve()
-                    .toBodilessEntity()
-                    .block();
-            log.info("Archivo eliminado de Supabase Storage: {}", objectPath);
-        } catch (Exception ex) {
-            log.warn("Error eliminando archivo de Supabase Storage (compensacion): {}", ex.getMessage());
-        }
-    }
-
-    private String extractObjectPath(String urlPublica) {
-        String base = properties.getBaseUrl();
-        if (base == null) {
-            return null;
-        }
-        String prefix = base + "/object/public/" + properties.getBucket() + "/";
-        if (urlPublica.startsWith(prefix)) {
-            return urlPublica.substring(prefix.length());
-        }
-        return null;
     }
 }

@@ -46,7 +46,7 @@ public class PedidoController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    @PreAuthorize("hasAnyRole('PREVENTISTA', 'ADMIN', 'SUPER_ADMIN')")
     @Operation(summary = "Listar todos los pedidos",
             description = "Retorna la lista completa de pedidos registrados")
     public ResponseEntity<ApiResponse<List<PedidoResponse>>> listarTodos(
@@ -56,7 +56,7 @@ public class PedidoController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    @PreAuthorize("hasAnyRole('PREVENTISTA', 'ADMIN', 'SUPER_ADMIN')")
     @Operation(summary = "Obtener un pedido por su ID",
             description = "Retorna el detalle completo del pedido, incluyendo lineas, " +
                     "nombre del cliente y tipo de garrafa")
@@ -86,11 +86,13 @@ public class PedidoController {
 
     @PostMapping(value = "/{id}/foto", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAnyRole('PREVENTISTA', 'REPARTIDOR', 'ADMIN', 'SUPER_ADMIN')")
-    @Operation(summary = "Subir foto de fachada como evidencia visual",
-            description = "Recibe un archivo de imagen (jpg/png/webp, max 10MB) y lo sube al bucket de Supabase Storage. "
-                    + "Devuelve la URL publica resultante y la persiste en el pedido.")
+    @Deprecated
+    @Operation(summary = "[DEPRECATED] Subir foto de fachada como evidencia visual",
+            description = "DEPRECATED desde V11: la foto ahora se asocia al cliente, no al pedido. "
+                    + "Migrar a POST /api/clientes/{clienteId}/foto. "
+                    + "Este endpoint se mantiene por compatibilidad de la app mobile hasta que actualice.")
     @ApiResponses({
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Foto subida y asociada al pedido",
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Foto subida y signed URL devuelta (no se persiste en el pedido)",
                     content = @Content(schema = @Schema(implementation = PedidoFotoResponse.class))),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Archivo invalido, vacio o tipo no permitido (solo image/jpeg, image/png, image/webp)"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Pedido no encontrado"),

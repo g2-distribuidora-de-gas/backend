@@ -1,5 +1,6 @@
 package com.sistemagas.pedidos.dto.response;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.Data;
 
@@ -18,4 +19,8 @@ public class ClienteResponse {
     private String placeId;
     private OffsetDateTime geoActualizadoEn;
     private Boolean activo;
+
+    @Schema(description = "URL firmada (signed URL) de la foto de fachada. Null si el cliente no tiene foto.",
+            example = "https://xxx.supabase.co/storage/v1/object/sign/...")
+    private String urlFotoEvidencia;
 }
