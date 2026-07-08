@@ -13,6 +13,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -38,6 +39,7 @@ public class GarrafaController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     @Operation(summary = "Crear nueva garrafa", description = "Crea una nueva garrafa en el catálogo")
     public ResponseEntity<ApiResponse<GarrafaResponse>> crear(@Valid @RequestBody GarrafaRequest request) {
         GarrafaResponse response = garrafaService.crear(request);
@@ -45,6 +47,7 @@ public class GarrafaController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     @Operation(summary = "Actualizar garrafa", description = "Actualiza los datos de una garrafa existente")
     public ResponseEntity<ApiResponse<GarrafaResponse>> actualizar(
             @PathVariable Long id,
@@ -54,6 +57,7 @@ public class GarrafaController {
     }
 
     @PatchMapping("/{id}/precio")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     @Operation(summary = "Actualizar precio de garrafa",
             description = "Actualiza el precio de una garrafa existente. El nuevo precio aplica solo a pedidos nuevos; " +
                     "los pedidos ya existentes conservan su precioUnitario historico.")
@@ -65,6 +69,7 @@ public class GarrafaController {
     }
 
     @PostMapping("/{id}/reposicion")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     @Operation(summary = "Reponer stock de garrafa",
             description = "Incrementa el stockDisponible de una garrafa sumando la cantidad indicada. " +
                     "Acepta un motivo opcional para auditoria.")
