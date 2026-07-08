@@ -38,7 +38,16 @@ public class ClienteServiceImpl implements ClienteService {
         clienteExistente.setTelefono(clienteModificado.getTelefono());
         clienteExistente.setDireccion(clienteModificado.getDireccion());
         
-        if (direccionCambio) {
+        boolean coordsManuales = false;
+        if (clienteModificado.getLatitud() != null && clienteModificado.getLongitud() != null) {
+            clienteExistente.setLatitud(clienteModificado.getLatitud());
+            clienteExistente.setLongitud(clienteModificado.getLongitud());
+            clienteExistente.setGeoActualizadoEn(OffsetDateTime.now());
+            clienteExistente.setGeocodePrecision("manual");
+            coordsManuales = true;
+        }
+        
+        if (direccionCambio && !coordsManuales) {
             geocodificarSiEsNecesario(clienteExistente);
         }
         
@@ -65,6 +74,11 @@ public class ClienteServiceImpl implements ClienteService {
     }
     
     private void geocodificarSiEsNecesario(Cliente cliente) {
+        if (cliente.getLatitud() != null && cliente.getLongitud() != null) {
+            cliente.setGeoActualizadoEn(OffsetDateTime.now());
+            cliente.setGeocodePrecision("manual");
+            return;
+        }
         try {
             LocationDto loc = geocodingService.obtenerCoordenadas(cliente.getDireccion());
             if (loc != null) {

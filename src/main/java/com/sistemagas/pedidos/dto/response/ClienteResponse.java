@@ -16,6 +16,7 @@ public class ClienteResponse {
     private BigDecimal latitud;
     private BigDecimal longitud;
     private String placeId;
+    private String geocodePrecision;
     private OffsetDateTime geoActualizadoEn;
     private Boolean activo;
 }

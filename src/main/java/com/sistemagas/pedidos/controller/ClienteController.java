@@ -28,6 +28,8 @@ public class ClienteController {
                 .nombre(request.getNombre())
                 .telefono(request.getTelefono())
                 .direccion(request.getDireccion())
+                .latitud(request.getLatitud())
+                .longitud(request.getLongitud())
                 .build();
         
         Cliente creado = clienteService.crearCliente(cliente);
@@ -41,6 +43,8 @@ public class ClienteController {
                 .nombre(request.getNombre())
                 .telefono(request.getTelefono())
                 .direccion(request.getDireccion())
+                .latitud(request.getLatitud())
+                .longitud(request.getLongitud())
                 .build();
                 
         Cliente actualizado = clienteService.actualizarCliente(id, clienteModificado);
@@ -78,6 +82,7 @@ public class ClienteController {
                 .latitud(cliente.getLatitud())
                 .longitud(cliente.getLongitud())
                 .placeId(cliente.getPlaceId())
+                .geocodePrecision(cliente.getGeocodePrecision())
                 .geoActualizadoEn(cliente.getGeoActualizadoEn())
                 .activo(cliente.getActivo())
                 .build();
