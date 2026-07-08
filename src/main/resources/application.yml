@@ -42,3 +42,6 @@ app:
   jwt:
     secret: ${JWT_SECRET:clave-secreta-de-desarrollo-cambiar-en-produccion-min-64-chars-!!!!}
     expiration-ms: ${JWT_EXPIRATION:86400000}
+
+locationiq:
+  api-key: ${LOCATIONIQ_API_KEY:}
