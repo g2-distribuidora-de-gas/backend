@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -25,6 +26,7 @@ public class SincronizacionController {
     private final SincronizacionService sincronizacionService;
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('PREVENTISTA', 'ADMIN', 'SUPER_ADMIN')")
     @Operation(summary = "Sincronizar lote de pedidos creados offline",
             description = "Recibe pedidos guardados en IndexedDB del cliente y los procesa. " +
                     "Devuelve 3 listas: procesados, duplicados y errores.")
@@ -35,6 +37,7 @@ public class SincronizacionController {
     }
 
     @GetMapping("/estado")
+    @PreAuthorize("hasAnyRole('PREVENTISTA', 'ADMIN', 'SUPER_ADMIN')")
     @Operation(summary = "Consultar el estado de sincronizacion de una lista de UUIDs",
             description = "Recibe una lista de UUIDs offline y devuelve cuales ya fueron procesados " +
                     "en el servidor y cuales aun no. Util para que el cliente consulte antes de reenviar.")

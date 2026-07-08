@@ -18,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -37,6 +38,7 @@ public class PedidoController {
     private final PedidoService pedidoService;
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('PREVENTISTA', 'ADMIN', 'SUPER_ADMIN')")
     @Operation(summary = "Crear un pedido individual (camino online)")
     public ResponseEntity<ApiResponse<PedidoResponse>> crear(@Valid @RequestBody PedidoRequest request) {
         PedidoResponse response = pedidoService.crear(request);
@@ -44,6 +46,7 @@ public class PedidoController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     @Operation(summary = "Listar todos los pedidos",
             description = "Retorna la lista completa de pedidos registrados")
     public ResponseEntity<ApiResponse<List<PedidoResponse>>> listarTodos(
@@ -53,6 +56,7 @@ public class PedidoController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     @Operation(summary = "Obtener un pedido por su ID",
             description = "Retorna el detalle completo del pedido, incluyendo lineas, " +
                     "nombre del cliente y tipo de garrafa")
@@ -63,6 +67,7 @@ public class PedidoController {
     }
 
     @PatchMapping("/{id}/estado")
+    @PreAuthorize("hasAnyRole('REPARTIDOR', 'ADMIN', 'SUPER_ADMIN')")
     @Operation(summary = "Actualizar el estado de un pedido")
     public ResponseEntity<ApiResponse<Void>> actualizarEstado(
             @Parameter(description = "ID del pedido", example = "1") @PathVariable Long id,
@@ -72,6 +77,7 @@ public class PedidoController {
     }
 
     @GetMapping("/uuid/{uuidOffline}")
+    @PreAuthorize("hasAnyRole('PREVENTISTA', 'ADMIN', 'SUPER_ADMIN')")
     @Operation(summary = "Obtener un pedido por su UUID offline")
     public ResponseEntity<ApiResponse<PedidoResponse>> obtenerPorUuidOffline(
             @PathVariable @NotBlank(message = "uuidOffline no puede estar vacio") String uuidOffline) {
@@ -79,6 +85,7 @@ public class PedidoController {
     }
 
     @PostMapping(value = "/{id}/foto", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('PREVENTISTA', 'REPARTIDOR', 'ADMIN', 'SUPER_ADMIN')")
     @Operation(summary = "Subir foto de fachada como evidencia visual",
             description = "Recibe un archivo de imagen (jpg/png/webp, max 10MB) y lo sube al bucket de Supabase Storage. "
                     + "Devuelve la URL publica resultante y la persiste en el pedido.")

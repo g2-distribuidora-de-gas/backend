@@ -14,6 +14,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.stream.Collectors;
@@ -26,18 +27,21 @@ public class RutaController {
     private final RutaService rutaService;
 
     @PostMapping("/planificar")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<RutaResponse> planificarRuta(@Valid @RequestBody RutaPlanificarRequest request) {
         Ruta ruta = rutaService.planificarRuta(request.getRepartidorId(), request.getPedidosIds());
         return new ResponseEntity<>(mapToResponse(ruta), HttpStatus.CREATED);
     }
 
     @GetMapping("/mis-rutas/{repartidorId}")
+    @PreAuthorize("hasAnyRole('REPARTIDOR', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<RutaResponse> obtenerMiRutaActiva(@PathVariable Long repartidorId) {
         Ruta ruta = rutaService.obtenerRutaActivaRepartidor(repartidorId);
         return ResponseEntity.ok(mapToResponse(ruta));
     }
 
     @PatchMapping("/paradas/{rutaPedidoId}")
+    @PreAuthorize("hasAnyRole('REPARTIDOR', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<Void> actualizarEstadoParada(@PathVariable Long rutaPedidoId,
                                                        @Valid @RequestBody ActualizarParadaRequest request) {
         rutaService.actualizarEstadoParada(rutaPedidoId, request.getNuevoEstado());
@@ -45,6 +49,7 @@ public class RutaController {
     }
 
     @PatchMapping("/{rutaId}/estado")
+    @PreAuthorize("hasAnyRole('REPARTIDOR', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<RutaResponse> cambiarEstadoRuta(@PathVariable Long rutaId,
                                                           @RequestParam EstadoRuta estado) {
         Ruta ruta = rutaService.cambiarEstadoRuta(rutaId, estado);
