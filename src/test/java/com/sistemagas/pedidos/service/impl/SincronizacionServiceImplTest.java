@@ -70,7 +70,6 @@ class SincronizacionServiceImplTest {
 
         pedidoDetalleMapper = new PedidoDetalleMapperImpl();
         pedidoMapper = new PedidoMapperImpl();
-        injectField(pedidoMapper, "pedidoDetalleMapper", pedidoDetalleMapper);
 
         garrafaStockHelper = new GarrafaStockHelper(garrafaRepositoryPort);
 

@@ -54,9 +54,8 @@ class PedidoServiceImplFotoTest {
     @BeforeEach
     void setUp() {
         GarrafaStockHelper garrafaStockHelper = new GarrafaStockHelper(garrafaRepositoryPort);
-        PedidoMapperImpl pedidoMapper = new PedidoMapperImpl();
         PedidoDetalleMapperImpl pedidoDetalleMapper = new PedidoDetalleMapperImpl();
-        injectField(pedidoMapper, "pedidoDetalleMapper", pedidoDetalleMapper);
+        PedidoMapperImpl pedidoMapper = new PedidoMapperImpl();
 
         TransactionTemplate txTemplate = new TransactionTemplate(new NoopTransactionManager());
 

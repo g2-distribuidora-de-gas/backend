@@ -10,7 +10,6 @@ import org.mapstruct.Mapping;
 @Mapper(componentModel = "spring")
 public interface PedidoDetalleMapper {
 
-    @Mapping(source = "garrafaId", target = "garrafaId")
     @Mapping(target = "garrafaTipo", ignore = true)
     PedidoDetalleResponse toResponse(PedidoDetalle detalle);
 

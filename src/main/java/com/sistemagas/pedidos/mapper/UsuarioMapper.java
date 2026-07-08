@@ -24,6 +24,8 @@ public interface UsuarioMapper {
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "passwordHash", ignore = true)
     @Mapping(target = "version", ignore = true)
+    @Mapping(target = "rol", ignore = true)
+    @Mapping(target = "email", ignore = true)
     void updateEntity(@MappingTarget Usuario usuario, UsuarioRequest request);
 
     @AfterMapping
