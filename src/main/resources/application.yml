@@ -28,7 +28,6 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
     operations-sorter: method
-
 management:
   endpoints:
     web:
