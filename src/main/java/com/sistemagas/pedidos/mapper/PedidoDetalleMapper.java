@@ -13,7 +13,7 @@ public interface PedidoDetalleMapper {
     @Mapping(target = "garrafaTipo", ignore = true)
     PedidoDetalleResponse toResponse(PedidoDetalle detalle);
 
-    default void fillGarrafaTipo(PedidoDetalleResponse response, GarrafaModel garrafa) {
+    default void applyGarrafaTipo(PedidoDetalleResponse response, GarrafaModel garrafa) {
         if (garrafa != null) {
             TipoGarrafa tipo = garrafa.getTipo();
             if (tipo != null) {

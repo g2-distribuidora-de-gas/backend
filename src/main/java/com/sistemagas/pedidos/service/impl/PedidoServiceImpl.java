@@ -205,7 +205,7 @@ public class PedidoServiceImpl implements PedidoService {
         List<PedidoDetalleResponse> detalles = new ArrayList<>();
         for (PedidoDetalle d : pedido.getDetalles()) {
             PedidoDetalleResponse detResp = pedidoDetalleMapper.toResponse(d);
-            pedidoDetalleMapper.fillGarrafaTipo(detResp, garrafas.get(d.getGarrafaId()));
+            pedidoDetalleMapper.applyGarrafaTipo(detResp, garrafas.get(d.getGarrafaId()));
             detalles.add(detResp);
         }
         response.setDetalles(detalles);
