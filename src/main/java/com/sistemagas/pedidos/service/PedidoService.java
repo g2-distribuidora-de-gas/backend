@@ -18,6 +18,8 @@ public interface PedidoService {
 
     List<PedidoResponse> listarTodos(Instant minUpdatedAt, Integer limit);
 
+    List<PedidoResponse> listarPorCreador(Long creadorId, Instant minUpdatedAt, Integer limit);
+
     void actualizarEstado(Long id, com.sistemagas.pedidos.enums.EstadoPedido estado);
 
     /**

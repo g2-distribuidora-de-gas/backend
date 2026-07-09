@@ -21,4 +21,7 @@ public interface PedidoRepository extends JpaRepository<Pedido, Long> {
 
     List<Pedido> findByUpdatedAtGreaterThan(Instant minUpdatedAt, Pageable pageable);
     List<Pedido> findAllBy(Pageable pageable);
+
+    List<Pedido> findByCreadorIdAndUpdatedAtGreaterThan(Long creadorId, Instant minUpdatedAt, Pageable pageable);
+    List<Pedido> findByCreadorId(Long creadorId, Pageable pageable);
 }

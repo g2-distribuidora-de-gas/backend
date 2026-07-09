@@ -57,6 +57,17 @@ public class PedidoController {
         return ResponseEntity.ok(ApiResponse.ok(pedidoService.listarTodos(minUpdatedAt, limit)));
     }
 
+    @GetMapping("/creador/{creadorId}")
+    @PreAuthorize("hasAnyRole('PREVENTISTA', 'REPARTIDOR', 'ADMIN', 'SUPER_ADMIN')")
+    @Operation(summary = "Listar pedidos por creador",
+            description = "Retorna los pedidos creados por un usuario en específico")
+    public ResponseEntity<ApiResponse<List<PedidoResponse>>> listarPorCreador(
+            @Parameter(description = "ID del usuario creador", example = "1") @PathVariable Long creadorId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant minUpdatedAt,
+            @RequestParam(required = false, defaultValue = "100") Integer limit) {
+        return ResponseEntity.ok(ApiResponse.ok(pedidoService.listarPorCreador(creadorId, minUpdatedAt, limit)));
+    }
+
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('PREVENTISTA', 'ADMIN', 'SUPER_ADMIN')")
     @Operation(summary = "Obtener un pedido por su ID",

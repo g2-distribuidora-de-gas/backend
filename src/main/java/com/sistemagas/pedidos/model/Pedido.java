@@ -39,6 +39,10 @@ public class Pedido extends Auditable {
     @JoinColumn(name = "cliente_id", nullable = false)
     private Cliente cliente;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "creador_id")
+    private Usuario creador;
+
     @NotBlank(message = "La direccion de entrega es obligatoria")
     @Size(max = 300)
     @Column(name = "direccion_entrega", nullable = false, length = 300)
