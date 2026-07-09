@@ -11,4 +11,5 @@ public class LocationIQProperties {
     private String apiKey;
     private String geocodingUrl = "https://us1.locationiq.com/v1/search.php";
     private String routingUrl = "https://us1.locationiq.com/v1/directions/driving/";
+    private String optimizationUrl = "https://us1.locationiq.com/v1/optimize/driving/";
 }

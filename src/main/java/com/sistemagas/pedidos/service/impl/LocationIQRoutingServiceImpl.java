@@ -31,26 +31,38 @@ public class LocationIQRoutingServiceImpl implements RoutingService {
 
     @Override
     public RouteResultDto calcularRutaOptimizada(BigDecimal origenLat, BigDecimal origenLng, List<Pedido> pedidos) {
+        List<Pedido> pedidosRuteables = new ArrayList<>();
+        List<Pedido> pedidosOmitidos = new ArrayList<>();
+        
+        for (Pedido p : pedidos) {
+            if (p.getCliente() != null && p.getCliente().getLatitud() != null && p.getCliente().getLongitud() != null) {
+                pedidosRuteables.add(p);
+            } else {
+                pedidosOmitidos.add(p);
+                log.warn("El pedido {} no tiene coordenadas validas, se omite de la optimizacion", p.getId());
+            }
+        }
+
+        if (pedidosRuteables.isEmpty()) {
+            return crearRutaFallback(pedidos);
+        }
+
         try {
-            // LocationIQ espera coordenadas en el formato: {longitud},{latitud};{longitud},{latitud}...
             StringBuilder coordsBuilder = new StringBuilder();
             coordsBuilder.append(origenLng).append(",").append(origenLat);
 
-            for (Pedido p : pedidos) {
-                if (p.getCliente() != null && p.getCliente().getLatitud() != null && p.getCliente().getLongitud() != null) {
-                    coordsBuilder.append(";")
-                            .append(p.getCliente().getLongitud())
-                            .append(",")
-                            .append(p.getCliente().getLatitud());
-                } else {
-                    log.warn("El pedido {} no tiene coordenadas validas, se omite de la ruta geométrica", p.getId());
-                }
+            for (Pedido p : pedidosRuteables) {
+                coordsBuilder.append(";")
+                        .append(p.getCliente().getLongitud())
+                        .append(",")
+                        .append(p.getCliente().getLatitud());
             }
 
-            String url = UriComponentsBuilder.fromHttpUrl(properties.getRoutingUrl() + coordsBuilder.toString())
+            String url = UriComponentsBuilder.fromHttpUrl(properties.getOptimizationUrl() + coordsBuilder.toString())
                     .queryParam("key", properties.getApiKey())
-                    .queryParam("steps", "true")
-                    .queryParam("alternatives", "false")
+                    .queryParam("source", "first")
+                    .queryParam("roundtrip", "false")
+                    .queryParam("steps", "false")
                     .queryParam("geometries", "polyline")
                     .queryParam("overview", "full")
                     .toUriString();
@@ -63,53 +75,76 @@ public class LocationIQRoutingServiceImpl implements RoutingService {
             );
 
             Map<String, Object> body = response.getBody();
-            if (body != null && body.containsKey("routes")) {
-                List<Map<String, Object>> routes = (List<Map<String, Object>>) body.get("routes");
-                if (!routes.isEmpty()) {
-                    Map<String, Object> bestRoute = routes.get(0);
+            if (body != null && "Ok".equals(body.get("code"))) {
+                List<Map<String, Object>> trips = (List<Map<String, Object>>) body.get("trips");
+                List<Map<String, Object>> waypointsInfo = (List<Map<String, Object>>) body.get("waypoints");
+
+                if (trips != null && !trips.isEmpty() && waypointsInfo != null) {
+                    Map<String, Object> bestTrip = trips.get(0);
                     
-                    Double distance = Optional.ofNullable(bestRoute.get("distance"))
-                            .map(Number.class::cast).map(Number::doubleValue).orElse(0.0);
-                    Double duration = Optional.ofNullable(bestRoute.get("duration"))
-                            .map(Number.class::cast).map(Number::doubleValue).orElse(0.0);
-                    String geometry = Objects.toString(bestRoute.get("geometry"), "");
+                    Double distance = Optional.ofNullable(bestTrip.get("distance")).map(Number.class::cast).map(Number::doubleValue).orElse(0.0);
+                    Double duration = Optional.ofNullable(bestTrip.get("duration")).map(Number.class::cast).map(Number::doubleValue).orElse(0.0);
+                    String geometry = Objects.toString(bestTrip.get("geometry"), "");
                     
-                    // Aquí simulamos el orden mapeando las "legs" devueltas con el array original de pedidos
-                    List<RouteResultDto.RouteWaypointDto> waypoints = new ArrayList<>();
+                    List<Map<String, Object>> legs = (List<Map<String, Object>>) bestTrip.get("legs");
+                    List<RouteResultDto.RouteWaypointDto> paradas = new ArrayList<>();
                     
-                    List<Map<String, Object>> legs = (List<Map<String, Object>>) bestRoute.get("legs");
-                    int i = 0;
-                    for (Pedido p : pedidos) {
-                        // Nota: el optimizador real (Routing/Optimization API de LocationIQ o OSRM) 
-                        // puede reordenar. OSRM simple devuelve el mismo orden que le pasaste.
-                        // Para optimización real TSP (Traveling Salesman Problem) usar endpoint de optimization.
-                        int distLeg = (i < legs.size()) ? Optional.ofNullable(legs.get(i).get("distance"))
-                                .map(Number.class::cast).map(Number::intValue).orElse(0) : 0;
-                        int durLeg = (i < legs.size()) ? Optional.ofNullable(legs.get(i).get("duration"))
-                                .map(Number.class::cast).map(Number::intValue).orElse(0) : 0;
+                    RouteResultDto.RouteWaypointDto[] orderedStops = new RouteResultDto.RouteWaypointDto[pedidosRuteables.size()];
+                    
+                    // index 0 is origin, so we start from index 1 which corresponds to orders
+                    for (int i = 1; i < waypointsInfo.size(); i++) {
+                        Map<String, Object> wp = waypointsInfo.get(i);
+                        int waypointIndex = Optional.ofNullable(wp.get("waypoint_index")).map(Number.class::cast).map(Number::intValue).orElse(i);
                         
-                        waypoints.add(RouteResultDto.RouteWaypointDto.builder()
+                        Pedido p = pedidosRuteables.get(i - 1);
+                        
+                        int distLeg = 0;
+                        int durLeg = 0;
+                        // legs are 0-indexed corresponding to the leg leading to waypointIndex
+                        if (legs != null && (waypointIndex - 1) >= 0 && (waypointIndex - 1) < legs.size()) {
+                            Map<String, Object> leg = legs.get(waypointIndex - 1);
+                            distLeg = Optional.ofNullable(leg.get("distance")).map(Number.class::cast).map(Number::intValue).orElse(0);
+                            durLeg = Optional.ofNullable(leg.get("duration")).map(Number.class::cast).map(Number::intValue).orElse(0);
+                        }
+                        
+                        if (waypointIndex > 0 && waypointIndex <= pedidosRuteables.size()) {
+                            orderedStops[waypointIndex - 1] = RouteResultDto.RouteWaypointDto.builder()
+                                    .pedidoId(p.getId())
+                                    .orden(waypointIndex)
+                                    .distanciaDesdeAnteriorM(distLeg)
+                                    .duracionDesdeAnteriorS(durLeg)
+                                    .build();
+                        }
+                    }
+                    
+                    for (RouteResultDto.RouteWaypointDto stop : orderedStops) {
+                        if (stop != null) {
+                            paradas.add(stop);
+                        }
+                    }
+                    
+                    // Add omitted orders at the end
+                    for (Pedido p : pedidosOmitidos) {
+                        paradas.add(RouteResultDto.RouteWaypointDto.builder()
                                 .pedidoId(p.getId())
-                                .orden(i + 1)
-                                .distanciaDesdeAnteriorM(distLeg)
-                                .duracionDesdeAnteriorS(durLeg)
+                                .orden(paradas.size() + 1)
+                                .distanciaDesdeAnteriorM(0)
+                                .duracionDesdeAnteriorS(0)
                                 .build());
-                        i++;
                     }
 
                     return RouteResultDto.builder()
                             .distanciaTotalM(distance.intValue())
                             .duracionTotalS(duration.intValue())
                             .geometria(geometry)
-                            .paradasOrdenadas(waypoints)
+                            .paradasOrdenadas(paradas)
                             .build();
                 }
             }
         } catch (Exception e) {
-            log.error("Error al planificar ruta con LocationIQ", e);
+            log.error("Error al planificar ruta con LocationIQ API de Optimizacion", e);
         }
 
-        // Fallback: Si falla la API, creamos una ruta vacía o ficticia para no bloquear el sistema
         return crearRutaFallback(pedidos);
     }
     

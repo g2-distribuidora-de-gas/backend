@@ -3,6 +3,7 @@ package com.sistemagas.pedidos.repository;
 import com.sistemagas.pedidos.enums.EstadoRuta;
 import com.sistemagas.pedidos.model.Ruta;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
@@ -13,7 +14,11 @@ import java.util.Optional;
 public interface RutaRepository extends JpaRepository<Ruta, Long> {
 
     // Útil para buscar la ruta del día actual de un repartidor
+    @EntityGraph(attributePaths = {"paradas", "paradas.pedido", "paradas.pedido.cliente", "repartidor"})
     Optional<Ruta> findByRepartidorIdAndFechaRepartoAndEstado(Long repartidorId, LocalDate fechaReparto, EstadoRuta estado);
+
+    @EntityGraph(attributePaths = {"paradas", "paradas.pedido", "paradas.pedido.cliente", "repartidor"})
+    Optional<Ruta> findById(Long id);
 
     // Listar todas las rutas de un día en particular (útil para el admin)
     List<Ruta> findByFechaReparto(LocalDate fechaReparto);

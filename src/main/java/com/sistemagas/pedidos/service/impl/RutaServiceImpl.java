@@ -91,7 +91,9 @@ public class RutaServiceImpl implements RutaService {
     public Ruta obtenerRutaActivaRepartidor(Long repartidorId) {
         return rutaRepository.findByRepartidorIdAndFechaRepartoAndEstado(
                 repartidorId, LocalDate.now(), EstadoRuta.EN_CURSO)
-                .orElseThrow(() -> new ResourceNotFoundException("No hay ruta activa para el repartidor hoy"));
+                .orElseGet(() -> rutaRepository.findByRepartidorIdAndFechaRepartoAndEstado(
+                        repartidorId, LocalDate.now(), EstadoRuta.PLANIFICADA)
+                        .orElseThrow(() -> new ResourceNotFoundException("No hay ruta activa para el repartidor hoy")));
     }
 
     @Override
