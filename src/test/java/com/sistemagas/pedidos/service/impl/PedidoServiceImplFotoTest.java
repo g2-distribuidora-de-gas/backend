@@ -9,6 +9,7 @@ import com.sistemagas.pedidos.model.Cliente;
 import com.sistemagas.pedidos.model.Pedido;
 import com.sistemagas.pedidos.repository.ClienteRepository;
 import com.sistemagas.pedidos.repository.PedidoRepository;
+import com.sistemagas.pedidos.repository.UsuarioRepository;
 import com.sistemagas.pedidos.repository.port.GarrafaRepositoryPort;
 import com.sistemagas.pedidos.service.SupabaseStorageService;
 import com.sistemagas.pedidos.support.NoopTransactionManager;
@@ -49,6 +50,9 @@ class PedidoServiceImplFotoTest {
     private ClienteRepository clienteRepository;
 
     @Mock
+    private UsuarioRepository usuarioRepository;
+
+    @Mock
     private SupabaseStorageService supabaseStorageService;
 
     private PedidoServiceImpl service;
@@ -65,6 +69,7 @@ class PedidoServiceImplFotoTest {
                 pedidoRepository,
                 garrafaRepositoryPort,
                 clienteRepository,
+                usuarioRepository,
                 pedidoMapper,
                 pedidoDetalleMapper,
                 garrafaStockHelper,

@@ -22,6 +22,8 @@ public class PedidoRequest {
     @NotNull(message = "El ID del cliente es obligatorio")
     private Long clienteId;
 
+    private Long creadorId;
+
     @NotBlank(message = "La direccion de entrega es obligatoria")
     @Size(max = 300)
     private String direccionEntrega;

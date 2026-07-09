@@ -34,6 +34,10 @@ public class Pedido extends Auditable {
     @JoinColumn(name = "cliente_id", nullable = false)
     private Cliente cliente;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "creador_id")
+    private Usuario creador;
+
     @Column(name = "direccion_entrega", nullable = false, length = 300)
     private String direccionEntrega;
 

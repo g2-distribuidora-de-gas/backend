@@ -19,6 +19,8 @@ public class PedidoResponse {
     private String uuidOffline;
     private Long clienteId;
     private String clienteNombre;
+    private Long creadorId;
+    private String creadorNombre;
     private String direccionEntrega;
     private EstadoPedido estado;
     private String urlFotoEvidencia;

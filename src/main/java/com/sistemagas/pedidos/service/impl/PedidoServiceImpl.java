@@ -14,8 +14,10 @@ import com.sistemagas.pedidos.model.GarrafaModel;
 import com.sistemagas.pedidos.model.Pedido;
 import com.sistemagas.pedidos.model.PedidoDetalle;
 import com.sistemagas.pedidos.model.Cliente;
+import com.sistemagas.pedidos.model.Usuario;
 import com.sistemagas.pedidos.repository.ClienteRepository;
 import com.sistemagas.pedidos.repository.PedidoRepository;
+import com.sistemagas.pedidos.repository.UsuarioRepository;
 import com.sistemagas.pedidos.repository.port.GarrafaRepositoryPort;
 import com.sistemagas.pedidos.service.PedidoService;
 import com.sistemagas.pedidos.service.SupabaseStorageService;
@@ -51,6 +53,7 @@ public class PedidoServiceImpl implements PedidoService {
     private final PedidoRepository pedidoRepository;
     private final GarrafaRepositoryPort garrafaRepositoryPort;
     private final ClienteRepository clienteRepository;
+    private final UsuarioRepository usuarioRepository;
     private final PedidoMapper pedidoMapper;
     private final PedidoDetalleMapper pedidoDetalleMapper;
     private final GarrafaStockHelper garrafaStockHelper;
@@ -68,8 +71,15 @@ public class PedidoServiceImpl implements PedidoService {
         Cliente cliente = clienteRepository.findById(request.getClienteId())
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado"));
 
+        Usuario creador = null;
+        if (request.getCreadorId() != null) {
+            creador = usuarioRepository.findById(request.getCreadorId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Usuario creador no encontrado"));
+        }
+
         Pedido pedido = pedidoMapper.toEntity(request);
         pedido.setCliente(cliente);
+        pedido.setCreador(creador);
         pedido.setEstado(EstadoPedido.PENDIENTE);
 
         Map<Long, GarrafaModel> garrafas = garrafaStockHelper.cargarYValidar(request.getDetalles());
@@ -146,6 +156,25 @@ public class PedidoServiceImpl implements PedidoService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    @Retryable(
+            retryFor = {DataAccessResourceFailureException.class, QueryTimeoutException.class},
+            maxAttempts = 3,
+            backoff = @Backoff(delay = 200, multiplier = 2))
+    public List<PedidoResponse> listarPorCreador(Long creadorId, Instant minUpdatedAt, Integer limit) {
+        int pageLimit = (limit != null && limit > 0) ? limit : 100;
+        Pageable pageable = PageRequest.of(0, pageLimit, Sort.by("updatedAt").ascending().and(Sort.by("id").ascending()));
+        
+        List<Pedido> pedidos = (minUpdatedAt != null)
+                ? pedidoRepository.findByCreadorIdAndUpdatedAtGreaterThan(creadorId, minUpdatedAt, pageable)
+                : pedidoRepository.findByCreadorId(creadorId, pageable);
+
+        return pedidos.stream()
+                .map(this::buildResponseFor)
+                .toList();
+    }
+
+    @Override
     @Transactional
     public void actualizarEstado(Long id, EstadoPedido estado) {
         Pedido pedido = pedidoRepository.findById(id)
@@ -208,6 +237,11 @@ public class PedidoServiceImpl implements PedidoService {
         if (cliente != null && cliente.getFotoEvidenciaPath() != null) {
             response.setUrlFotoEvidencia(
                     supabaseStorageService.getSignedUrl(cliente.getFotoEvidenciaPath()));
+        }
+
+        if (pedido.getCreador() != null) {
+            response.setCreadorId(pedido.getCreador().getId());
+            response.setCreadorNombre(pedido.getCreador().getNombre() + " " + pedido.getCreador().getApellido());
         }
 
         List<PedidoDetalleResponse> detalles = new ArrayList<>();
