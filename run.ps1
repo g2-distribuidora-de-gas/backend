@@ -1,6 +1,6 @@
 Write-Host "Cargando variables de entorno desde .env..." -ForegroundColor Cyan
 
-Get-Content .env | Where-Object { $_ -match "^[^#]" -and $_ -match "=" } | ForEach-Object {
+Get-Content .env | Where-Object { $_ -match "^[^#]" -and $_ -match "=" } | ForEach-.Object {
     $name, $value = $_.Split('=', 2)
     $name = $name.Trim()
     $value = $value.Trim()
