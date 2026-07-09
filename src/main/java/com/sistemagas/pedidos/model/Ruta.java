@@ -57,6 +57,9 @@ public class Ruta extends Auditable {
     @Builder.Default
     private List<RutaPedido> paradas = new ArrayList<>();
 
+    @Version
+    private Long version;
+
     public void agregarParada(RutaPedido parada) {
         paradas.add(parada);
         parada.setRuta(this);

@@ -17,6 +17,8 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -35,7 +37,7 @@ public class LocationIQRoutingServiceImpl implements RoutingService {
             coordsBuilder.append(origenLng).append(",").append(origenLat);
 
             for (Pedido p : pedidos) {
-                if (p.getCliente() != null && p.getCliente().getLatitud() != null) {
+                if (p.getCliente() != null && p.getCliente().getLatitud() != null && p.getCliente().getLongitud() != null) {
                     coordsBuilder.append(";")
                             .append(p.getCliente().getLongitud())
                             .append(",")
@@ -66,9 +68,11 @@ public class LocationIQRoutingServiceImpl implements RoutingService {
                 if (!routes.isEmpty()) {
                     Map<String, Object> bestRoute = routes.get(0);
                     
-                    Double distance = ((Number) bestRoute.get("distance")).doubleValue();
-                    Double duration = ((Number) bestRoute.get("duration")).doubleValue();
-                    String geometry = (String) bestRoute.get("geometry");
+                    Double distance = Optional.ofNullable(bestRoute.get("distance"))
+                            .map(Number.class::cast).map(Number::doubleValue).orElse(0.0);
+                    Double duration = Optional.ofNullable(bestRoute.get("duration"))
+                            .map(Number.class::cast).map(Number::doubleValue).orElse(0.0);
+                    String geometry = Objects.toString(bestRoute.get("geometry"), "");
                     
                     // Aquí simulamos el orden mapeando las "legs" devueltas con el array original de pedidos
                     List<RouteResultDto.RouteWaypointDto> waypoints = new ArrayList<>();
@@ -79,8 +83,10 @@ public class LocationIQRoutingServiceImpl implements RoutingService {
                         // Nota: el optimizador real (Routing/Optimization API de LocationIQ o OSRM) 
                         // puede reordenar. OSRM simple devuelve el mismo orden que le pasaste.
                         // Para optimización real TSP (Traveling Salesman Problem) usar endpoint de optimization.
-                        int distLeg = (i < legs.size()) ? ((Number) legs.get(i).get("distance")).intValue() : 0;
-                        int durLeg = (i < legs.size()) ? ((Number) legs.get(i).get("duration")).intValue() : 0;
+                        int distLeg = (i < legs.size()) ? Optional.ofNullable(legs.get(i).get("distance"))
+                                .map(Number.class::cast).map(Number::intValue).orElse(0) : 0;
+                        int durLeg = (i < legs.size()) ? Optional.ofNullable(legs.get(i).get("duration"))
+                                .map(Number.class::cast).map(Number::intValue).orElse(0) : 0;
                         
                         waypoints.add(RouteResultDto.RouteWaypointDto.builder()
                                 .pedidoId(p.getId())

@@ -13,6 +13,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -51,7 +53,7 @@ public class PedidoController {
             description = "Retorna la lista completa de pedidos registrados")
     public ResponseEntity<ApiResponse<List<PedidoResponse>>> listarTodos(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant minUpdatedAt,
-            @RequestParam(required = false, defaultValue = "100") Integer limit) {
+            @RequestParam(required = false, defaultValue = "100") @Min(1) @Max(1000) Integer limit) {
         return ResponseEntity.ok(ApiResponse.ok(pedidoService.listarTodos(minUpdatedAt, limit)));
     }
 

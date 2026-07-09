@@ -40,13 +40,11 @@ public class SincronizacionPedidoSaver {
                 throw new IllegalStateException("Garrafa no encontrada: id=" + det.getGarrafaId());
             }
             BigDecimal precioUnitario = garrafa.getPrecio();
-            BigDecimal subtotal = precioUnitario.multiply(BigDecimal.valueOf(det.getCantidad()));
 
             PedidoDetalle detalle = PedidoDetalle.builder()
                     .garrafaId(garrafa.getId())
                     .cantidad(det.getCantidad())
                     .precioUnitario(precioUnitario)
-                    .subtotal(subtotal)
                     .build();
 
             pedido.agregarDetalle(detalle);

@@ -81,7 +81,7 @@ public class ClienteFotoServiceImpl implements ClienteFotoService {
     @Override
     @Transactional
     public String subirImagenPendiente(Long clienteId, MultipartFile archivo, String descripcion) {
-        clienteRepository.findById(clienteId)
+        Cliente cliente = clienteRepository.findById(clienteId)
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado: id=" + clienteId));
 
         Optional<ClienteFotoPendiente> existente =
@@ -90,7 +90,6 @@ public class ClienteFotoServiceImpl implements ClienteFotoService {
             throw new BusinessException("El cliente ya tiene una imagen pendiente de asociar.");
         }
 
-        Cliente cliente = clienteRepository.findById(clienteId).get();
         if (cliente.getFotoEvidenciaPath() != null) {
             throw new BusinessException("El cliente ya tiene foto de evidencia asociada.");
         }

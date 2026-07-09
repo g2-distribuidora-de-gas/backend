@@ -80,13 +80,11 @@ public class PedidoServiceImpl implements PedidoService {
                 throw new ResourceNotFoundException(Constantes.MSG_GARRAFA_NO_ENCONTRADA + ": id=" + det.getGarrafaId());
             }
             BigDecimal precioUnitario = garrafa.getPrecio();
-            BigDecimal subtotal = precioUnitario.multiply(BigDecimal.valueOf(det.getCantidad()));
 
             PedidoDetalle detalle = PedidoDetalle.builder()
                     .garrafaId(garrafa.getId())
                     .cantidad(det.getCantidad())
                     .precioUnitario(precioUnitario)
-                    .subtotal(subtotal)
                     .build();
 
             pedido.agregarDetalle(detalle);

@@ -4,6 +4,7 @@ import com.sistemagas.pedidos.dto.location.RouteResultDto;
 import com.sistemagas.pedidos.enums.EstadoEntrega;
 import com.sistemagas.pedidos.enums.EstadoPedido;
 import com.sistemagas.pedidos.enums.EstadoRuta;
+import com.sistemagas.pedidos.exception.BusinessException;
 import com.sistemagas.pedidos.exception.ResourceNotFoundException;
 import com.sistemagas.pedidos.model.Pedido;
 import com.sistemagas.pedidos.model.Ruta;
@@ -98,6 +99,13 @@ public class RutaServiceImpl implements RutaService {
     public void actualizarEstadoParada(Long rutaPedidoId, EstadoEntrega nuevoEstado) {
         RutaPedido parada = rutaPedidoRepository.findById(rutaPedidoId)
                 .orElseThrow(() -> new ResourceNotFoundException("Parada no encontrada"));
+
+        EstadoEntrega actual = parada.getEstadoEntrega();
+        if (actual != EstadoEntrega.PENDIENTE) {
+            throw new BusinessException(
+                "No se puede cambiar el estado de una parada " + actual
+                + " (solo se permite cambiar desde PENDIENTE)");
+        }
         
         parada.setEstadoEntrega(nuevoEstado);
         rutaPedidoRepository.save(parada);

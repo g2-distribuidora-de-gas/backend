@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import org.springframework.data.domain.PageRequest;
@@ -75,7 +76,7 @@ public class GarrafaServiceImpl implements GarrafaService {
         Garrafa garrafa = garrafaRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("Garrafa no encontrada"));
 
-        if (!garrafa.getTipo().equals(request.getTipo()) && garrafaRepository.existsByTipo(request.getTipo())) {
+        if (!Objects.equals(garrafa.getTipo(), request.getTipo()) && garrafaRepository.existsByTipo(request.getTipo())) {
             throw new BusinessException(Constantes.MSG_TIPO_GARRAFA_DUPLICADO);
         }
 

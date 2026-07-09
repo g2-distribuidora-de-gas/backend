@@ -11,11 +11,13 @@ import org.mapstruct.MappingTarget;
 public interface GarrafaMapper {
 
     @Mapping(target = "id", ignore = true)
+    @Mapping(target = "version", ignore = true)
     Garrafa toEntity(GarrafaRequest request);
 
     GarrafaResponse toResponse(Garrafa garrafa);
 
     @Mapping(target = "id", ignore = true)
+    @Mapping(target = "version", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     void updateEntity(@MappingTarget Garrafa garrafa, GarrafaRequest request);

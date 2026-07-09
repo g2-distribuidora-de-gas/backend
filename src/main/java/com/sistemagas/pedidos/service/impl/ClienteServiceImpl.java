@@ -7,12 +7,15 @@ import com.sistemagas.pedidos.repository.ClienteRepository;
 import com.sistemagas.pedidos.service.ClienteService;
 import com.sistemagas.pedidos.service.GeocodingService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Objects;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ClienteServiceImpl implements ClienteService {
@@ -32,7 +35,7 @@ public class ClienteServiceImpl implements ClienteService {
     public Cliente actualizarCliente(Long id, Cliente clienteModificado) {
         Cliente clienteExistente = obtenerPorId(id);
         
-        boolean direccionCambio = !clienteExistente.getDireccion().equalsIgnoreCase(clienteModificado.getDireccion());
+        boolean direccionCambio = !Objects.equals(clienteExistente.getDireccion(), clienteModificado.getDireccion());
         
         clienteExistente.setNombre(clienteModificado.getNombre());
         clienteExistente.setTelefono(clienteModificado.getTelefono());
@@ -46,6 +49,7 @@ public class ClienteServiceImpl implements ClienteService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Cliente obtenerPorId(Long id) {
         return clienteRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado con id: " + id));
@@ -75,8 +79,8 @@ public class ClienteServiceImpl implements ClienteService {
                 cliente.setGeoActualizadoEn(OffsetDateTime.now());
             }
         } catch (Exception e) {
-            // Manejar error de geocoding (por ejemplo si la API está caída).
-            // Podríamos dejar el cliente sin coords temporalmente.
+            log.warn("Geocoding falló para dirección: {}, se deja cliente sin coordenadas temporalmente",
+                    cliente.getDireccion(), e);
         }
     }
 }

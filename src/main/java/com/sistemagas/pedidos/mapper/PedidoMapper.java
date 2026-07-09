@@ -25,6 +25,7 @@ public interface PedidoMapper {
     PedidoResponse toResponse(Pedido pedido);
 
     @Mapping(target = "id", ignore = true)
+    @Mapping(target = "version", ignore = true)
     @Mapping(target = "estado", ignore = true)
     @Mapping(target = "detalles", ignore = true)
     @Mapping(target = "cliente", ignore = true)

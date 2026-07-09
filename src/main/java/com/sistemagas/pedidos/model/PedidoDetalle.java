@@ -47,8 +47,12 @@ public class PedidoDetalle extends Auditable {
     @Column(name = "precio_unitario", nullable = false, precision = 10, scale = 2)
     private BigDecimal precioUnitario;
 
-    @NotNull(message = "El subtotal es obligatorio")
-    @DecimalMin(value = "0.00", message = "El subtotal no puede ser negativo")
-    @Column(name = "subtotal", nullable = false, precision = 10, scale = 2)
-    private BigDecimal subtotal;
+    @Version
+    private Long version;
+
+    @Transient
+    public BigDecimal getSubtotal() {
+        if (precioUnitario == null || cantidad == null) return BigDecimal.ZERO;
+        return precioUnitario.multiply(BigDecimal.valueOf(cantidad));
+    }
 }

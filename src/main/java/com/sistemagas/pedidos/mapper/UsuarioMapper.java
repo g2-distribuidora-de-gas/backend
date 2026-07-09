@@ -16,6 +16,12 @@ public interface UsuarioMapper {
     @Mapping(target = "version", ignore = true)
     Usuario toEntity(UsuarioRequest request);
 
+    default Usuario toEntityWithPassword(UsuarioRequest request, String encodedPassword) {
+        Usuario usuario = toEntity(request);
+        usuario.setPasswordHash(encodedPassword);
+        return usuario;
+    }
+
     @Mapping(target = "nombreCompleto", ignore = true)
     UsuarioResponse toResponse(Usuario usuario);
 

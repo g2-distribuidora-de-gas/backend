@@ -16,6 +16,7 @@ import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.dao.QueryTimeoutException;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,6 +36,7 @@ public class UsuarioServiceImpl implements UsuarioService {
     private final UsuarioRepository usuarioRepository;
     private final UsuarioMapper usuarioMapper;
     private final RolJerarquiaHelper rolJerarquiaHelper;
+    private final PasswordEncoder passwordEncoder;
 
     @Override
     @Transactional(readOnly = true)
@@ -62,7 +64,8 @@ public class UsuarioServiceImpl implements UsuarioService {
             throw new BusinessException(Constantes.MSG_DNI_DUPLICADO);
         }
 
-        Usuario usuario = usuarioMapper.toEntity(request);
+        String encodedPassword = passwordEncoder.encode(request.getPassword());
+        Usuario usuario = usuarioMapper.toEntityWithPassword(request, encodedPassword);
         Usuario savedUsuario = usuarioRepository.save(usuario);
         log.info("Usuario creado: id={}, dni={}", savedUsuario.getId(), savedUsuario.getDni());
 

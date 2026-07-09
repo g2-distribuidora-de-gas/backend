@@ -45,4 +45,17 @@ public class Garrafa extends Auditable implements GarrafaModel {
 
     @Column(nullable = false)
     private boolean activo;
+
+    @Version
+    private Long version;
+
+    @PrePersist
+    @PreUpdate
+    private void validarCapacidad() {
+        if (tipo != null && capacidadKg != null && tipo.getCapacidadKg() != capacidadKg) {
+            throw new IllegalArgumentException(
+                "La capacidad " + capacidadKg + "kg no coincide con el tipo " + tipo
+                + " (debería ser " + tipo.getCapacidadKg() + "kg)");
+        }
+    }
 }

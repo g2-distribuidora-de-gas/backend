@@ -45,10 +45,10 @@ public class LocationIQGeocodingServiceImpl implements GeocodingService {
             if (body != null && !body.isEmpty()) {
                 Map<String, Object> bestMatch = body.get(0);
                 return LocationDto.builder()
-                        .placeId((String) bestMatch.get("place_id"))
-                        .latitud(new BigDecimal((String) bestMatch.get("lat")))
-                        .longitud(new BigDecimal((String) bestMatch.get("lon")))
-                        .precision((String) bestMatch.get("class"))
+                        .placeId(String.valueOf(bestMatch.get("place_id")))
+                        .latitud(new BigDecimal(String.valueOf(bestMatch.get("lat"))))
+                        .longitud(new BigDecimal(String.valueOf(bestMatch.get("lon"))))
+                        .precision(String.valueOf(bestMatch.get("class")))
                         .build();
             }
 

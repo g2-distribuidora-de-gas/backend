@@ -9,6 +9,7 @@ import com.sistemagas.pedidos.service.UsuarioService;
 import com.sistemagas.pedidos.util.Constantes;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.security.access.prepost.PreAuthorize;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -32,6 +33,7 @@ public class UsuarioController {
     private final UsuarioRepository usuarioRepository;
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     @Operation(summary = "Listar todos los usuarios", description = "Retorna la lista completa de usuarios")
     public ResponseEntity<ApiResponse<List<UsuarioResponse>>> listarTodos(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant minUpdatedAt,
@@ -41,6 +43,7 @@ public class UsuarioController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     @Operation(summary = "Crear nuevo usuario", description = "Crea un nuevo usuario en el sistema")
     public ResponseEntity<ApiResponse<UsuarioResponse>> crear(@Valid @RequestBody UsuarioRequest request) {
         UsuarioResponse response = usuarioService.crear(request);
@@ -48,6 +51,7 @@ public class UsuarioController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     @Operation(summary = "Desactivar usuario", description = "Desactiva lógicamente un usuario")
     public ResponseEntity<ApiResponse<Void>> eliminar(@PathVariable Long id) {
         Usuario solicitante = getUsuarioAutenticado();
@@ -56,6 +60,7 @@ public class UsuarioController {
     }
 
     @PatchMapping("/{id}/reactivar")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     @Operation(summary = "Reactivar usuario", description = "Vuelve a activar un usuario que fue dado de baja lógica")
     public ResponseEntity<ApiResponse<Void>> reactivar(@PathVariable Long id) {
         Usuario solicitante = getUsuarioAutenticado();

@@ -53,6 +53,9 @@ public class Pedido extends Auditable {
     @Builder.Default
     private List<PedidoDetalle> detalles = new ArrayList<>();
 
+    @Version
+    private Long version;
+
     public void agregarDetalle(PedidoDetalle detalle) {
         detalles.add(detalle);
         detalle.setPedido(this);

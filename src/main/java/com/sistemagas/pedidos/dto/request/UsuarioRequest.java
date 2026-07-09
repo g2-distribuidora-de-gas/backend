@@ -44,6 +44,11 @@ public class UsuarioRequest {
     @Builder.Default
     private Boolean activo = true;
 
+    @Schema(description = "Contraseña del usuario")
+    @NotBlank(message = "La contraseña no puede estar en blanco")
+    @Size(min = 6, max = 100, message = "La contraseña debe tener entre 6 y 100 caracteres")
+    private String password;
+
     @Email(message = "El email debe tener un formato válido")
     @Size(max = 150, message = "El email no puede tener más de 150 caracteres")
     @Schema(description = "Email del usuario", example = "juan@sistemagas.com")

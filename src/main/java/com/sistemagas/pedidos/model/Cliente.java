@@ -61,4 +61,7 @@ public class Cliente extends Auditable {
 
     @Column(name = "foto_evidencia_path", length = 500)
     private String fotoEvidenciaPath;
+
+    @Version
+    private Long version;
 }

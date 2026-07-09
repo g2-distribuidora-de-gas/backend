@@ -49,4 +49,7 @@ public class RutaPedido {
     @Enumerated(EnumType.STRING)
     @Column(name = "estado_entrega", nullable = false, length = 30)
     private EstadoEntrega estadoEntrega;
+
+    @Version
+    private Long version;
 }

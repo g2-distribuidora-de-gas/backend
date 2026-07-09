@@ -10,6 +10,8 @@ import com.sistemagas.pedidos.util.Constantes;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -33,7 +35,7 @@ public class GarrafaController {
     @Operation(summary = "Listar todas las garrafas", description = "Retorna el catálogo completo de garrafas disponibles")
     public ResponseEntity<ApiResponse<List<GarrafaResponse>>> listarTodas(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant minUpdatedAt,
-            @RequestParam(required = false, defaultValue = "100") Integer limit) {
+            @RequestParam(required = false, defaultValue = "100") @Min(1) @Max(1000) Integer limit) {
         List<GarrafaResponse> garrafas = garrafaService.listarTodas(minUpdatedAt, limit);
         return ResponseEntity.ok(ApiResponse.ok(garrafas));
     }
