@@ -21,6 +21,7 @@ import java.util.Map;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@SuppressWarnings("unchecked")
 public class LocationIQRoutingServiceImpl implements RoutingService {
 
     private final RestTemplate restTemplate;

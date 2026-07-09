@@ -25,6 +25,7 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
+@SuppressWarnings({"deprecation", "unchecked", "rawtypes"})
 class SupabaseStorageServiceImplTest {
 
     @Mock
@@ -37,6 +38,7 @@ class SupabaseStorageServiceImplTest {
     private WebClient.RequestBodySpec requestBodySpec;
 
     @Mock
+    @SuppressWarnings("rawtypes")
     private WebClient.RequestHeadersSpec requestHeadersSpec;
 
     @Mock
@@ -128,11 +130,6 @@ class SupabaseStorageServiceImplTest {
                 .hasMessageContaining("Supabase Storage");
     }
 
-    private MultipartFile jpeg() {
-        return new MockMultipartFile(
-                "archivo", "fachada.jpg", MediaType.IMAGE_JPEG_VALUE, "fake-jpeg-bytes".getBytes());
-    }
-
     @SuppressWarnings("unchecked")
     private void stubWebClientOk() {
         lenient().when(webClient.post()).thenReturn(requestBodyUriSpec);
@@ -143,5 +140,10 @@ class SupabaseStorageServiceImplTest {
         lenient().when(responseSpec.onStatus(any(), any())).thenReturn(responseSpec);
         lenient().when(responseSpec.toBodilessEntity())
                 .thenReturn(Mono.just(org.springframework.http.ResponseEntity.ok().build()));
+    }
+
+    private MultipartFile jpeg() {
+        return new MockMultipartFile(
+                "archivo", "fachada.jpg", MediaType.IMAGE_JPEG_VALUE, "fake-jpeg-bytes".getBytes());
     }
 }

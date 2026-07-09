@@ -3,6 +3,7 @@ package com.sistemagas.pedidos.model;
 import com.sistemagas.pedidos.enums.EstadoRuta;
 import com.sistemagas.pedidos.model.base.Auditable;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
 import java.math.BigDecimal;
@@ -23,9 +24,11 @@ public class Ruta extends Auditable {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @NotNull(message = "La fecha de reparto es obligatoria")
     @Column(name = "fecha_reparto", nullable = false)
     private LocalDate fechaReparto;
 
+    @NotNull(message = "El repartidor es obligatorio")
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "repartidor_id", nullable = false)
     private Usuario repartidor;
@@ -45,6 +48,7 @@ public class Ruta extends Auditable {
     @Column(columnDefinition = "TEXT")
     private String geometria;
 
+    @NotNull(message = "El estado es obligatorio")
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     private EstadoRuta estado;

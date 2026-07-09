@@ -20,6 +20,7 @@ public interface PedidoMapper {
     @Mapping(source = "cliente.id", target = "clienteId")
     @Mapping(source = "cliente.nombre", target = "clienteNombre")
     @Mapping(target = "detalles", ignore = true)
+    @Mapping(target = "urlFotoEvidencia", ignore = true)
     @Mapping(target = "total", expression = "java(calcularTotal(pedido))")
     PedidoResponse toResponse(Pedido pedido);
 
