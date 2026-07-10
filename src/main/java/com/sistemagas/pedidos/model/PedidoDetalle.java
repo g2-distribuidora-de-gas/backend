@@ -50,9 +50,16 @@ public class PedidoDetalle extends Auditable {
     @Version
     private Long version;
 
-    @Transient
-    public BigDecimal getSubtotal() {
-        if (precioUnitario == null || cantidad == null) return BigDecimal.ZERO;
-        return precioUnitario.multiply(BigDecimal.valueOf(cantidad));
+    @Column(name = "subtotal", nullable = false, precision = 10, scale = 2)
+    private BigDecimal subtotal;
+
+    @PrePersist
+    @PreUpdate
+    public void calcularSubtotal() {
+        if (precioUnitario != null && cantidad != null) {
+            this.subtotal = precioUnitario.multiply(BigDecimal.valueOf(cantidad));
+        } else {
+            this.subtotal = BigDecimal.ZERO;
+        }
     }
 }
