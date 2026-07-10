@@ -16,6 +16,7 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 import reactor.core.publisher.Mono;
 
 import java.util.List;
+import java.util.function.Function;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -118,7 +119,7 @@ class SupabaseStorageServiceImplTest {
                 404, "Not Found", org.springframework.http.HttpHeaders.EMPTY, null, null);
 
         lenient().when(webClient.post()).thenReturn(requestBodyUriSpec);
-        lenient().when(requestBodyUriSpec.uri(anyString(), any(Object[].class))).thenReturn(requestBodySpec);
+        lenient().when(requestBodyUriSpec.uri(any(Function.class))).thenReturn(requestBodySpec);
         lenient().when(requestBodySpec.header(anyString(), anyString())).thenReturn(requestBodySpec);
         lenient().when(requestBodySpec.bodyValue(any())).thenReturn(requestHeadersSpec);
         lenient().when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
@@ -175,7 +176,7 @@ class SupabaseStorageServiceImplTest {
     @SuppressWarnings("unchecked")
     private void stubWebClientOk() {
         lenient().when(webClient.post()).thenReturn(requestBodyUriSpec);
-        lenient().when(requestBodyUriSpec.uri(anyString(), any(Object[].class))).thenReturn(requestBodySpec);
+        lenient().when(requestBodyUriSpec.uri(any(Function.class))).thenReturn(requestBodySpec);
         lenient().when(requestBodySpec.header(anyString(), anyString())).thenReturn(requestBodySpec);
         lenient().when(requestBodySpec.bodyValue(any())).thenReturn(requestHeadersSpec);
         lenient().when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
@@ -187,7 +188,7 @@ class SupabaseStorageServiceImplTest {
     @SuppressWarnings("unchecked")
     private void stubSignedUrlResponse(java.util.Map<String, Object> body) {
         lenient().when(webClient.post()).thenReturn(requestBodyUriSpec);
-        lenient().when(requestBodyUriSpec.uri(anyString(), any(Object[].class))).thenReturn(requestBodySpec);
+        lenient().when(requestBodyUriSpec.uri(any(Function.class))).thenReturn(requestBodySpec);
         lenient().when(requestBodySpec.bodyValue(any())).thenReturn(requestHeadersSpec);
         lenient().when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
         lenient().when(responseSpec.onStatus(any(), any())).thenReturn(responseSpec);

@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
+import org.springframework.web.util.UriBuilder;
 
 import java.io.IOException;
 import java.util.Locale;
@@ -57,7 +58,9 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
         }
         try {
             webClient.delete()
-                    .uri("/object/{bucket}/{path}", properties.getBucket(), objectPath)
+                    .uri(b -> b.pathSegment("object", properties.getBucket())
+                            .pathSegment(objectPath.split("/"))
+                            .build())
                     .retrieve()
                     .toBodilessEntity()
                     .block();
@@ -85,7 +88,9 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
             Map<String, Object> body = Map.of("expiresIn", ttlSeconds);
             @SuppressWarnings("unchecked")
             Map<String, Object> response = webClient.post()
-                    .uri("/object/sign/{bucket}/{path}", properties.getBucket(), objectPath)
+                    .uri(b -> b.pathSegment("object", "sign", properties.getBucket())
+                            .pathSegment(objectPath.split("/"))
+                            .build())
                     .bodyValue(body)
                     .retrieve()
                     .onStatus(s -> s.isError(), resp ->
@@ -190,7 +195,9 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
     private void subirBytes(String objectPath, byte[] contenido, String contentType) {
         try {
             webClient.post()
-                    .uri("/object/{bucket}/{path}", properties.getBucket(), objectPath)
+                    .uri(b -> b.pathSegment("object", properties.getBucket())
+                            .pathSegment(objectPath.split("/"))
+                            .build())
                     .header("Content-Type", contentType)
                     .header("x-upsert", "true")
                     .bodyValue(contenido)
