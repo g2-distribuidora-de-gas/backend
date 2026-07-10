@@ -103,7 +103,13 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
             if (signedUrl == null || signedUrl.isBlank()) {
                 throw new BusinessException("Supabase Storage no devolvio signedURL en la respuesta");
             }
-            return signedUrl;
+            String base = properties.getBaseUrl();
+            if (base == null || base.isBlank()) {
+                log.warn("getSignedUrl: no hay baseUrl configurada (project-ref ausente). Devolviendo signedURL relativo: {}",
+                        signedUrl);
+                return signedUrl;
+            }
+            return base + (signedUrl.startsWith("/") ? signedUrl : "/" + signedUrl);
         } catch (BusinessException ex) {
             throw ex;
         } catch (WebClientResponseException ex) {

@@ -130,6 +130,48 @@ class SupabaseStorageServiceImplTest {
                 .hasMessageContaining("Supabase Storage");
     }
 
+    @Test
+    @DisplayName("getSignedUrl: concatena baseUrl con signedURL para devolver URL completa al front")
+    void getSignedUrl_concatenaBaseUrlConSignedUrl() {
+        stubSignedUrlResponse(java.util.Map.of(
+                "signedURL",
+                "/object/sign/pedidos-evidencia/cliente-7/uuid.jpg?token=abc123"));
+
+        String url = service.getSignedUrl("cliente-7/uuid.jpg");
+
+        assertThat(url)
+                .isEqualTo("https://test-project-ref.supabase.co/storage/v1"
+                        + "/object/sign/pedidos-evidencia/cliente-7/uuid.jpg?token=abc123");
+    }
+
+    @Test
+    @DisplayName("getSignedUrl: si signedURL viene sin '/' inicial lo agrega para evitar doble slash")
+    void getSignedUrl_signedUrlSinSlashInicial_tambienConcatena() {
+        stubSignedUrlResponse(java.util.Map.of(
+                "signedURL",
+                "object/sign/pedidos-evidencia/cliente-9/uuid.png?token=xyz"));
+
+        String url = service.getSignedUrl("cliente-9/uuid.png");
+
+        assertThat(url)
+                .isEqualTo("https://test-project-ref.supabase.co/storage/v1"
+                        + "/object/sign/pedidos-evidencia/cliente-9/uuid.png?token=xyz");
+    }
+
+    @Test
+    @DisplayName("getSignedUrl: si no hay baseUrl configurada devuelve el signedURL relativo con warning")
+    void getSignedUrl_sinBaseUrl_devuelveRelativo() {
+        properties.setProjectRef(null);
+        stubSignedUrlResponse(java.util.Map.of(
+                "signedURL",
+                "/object/sign/pedidos-evidencia/cliente-1/uuid.jpg?token=t"));
+
+        String url = service.getSignedUrl("cliente-1/uuid.jpg");
+
+        assertThat(url)
+                .isEqualTo("/object/sign/pedidos-evidencia/cliente-1/uuid.jpg?token=t");
+    }
+
     @SuppressWarnings("unchecked")
     private void stubWebClientOk() {
         lenient().when(webClient.post()).thenReturn(requestBodyUriSpec);
@@ -140,6 +182,16 @@ class SupabaseStorageServiceImplTest {
         lenient().when(responseSpec.onStatus(any(), any())).thenReturn(responseSpec);
         lenient().when(responseSpec.toBodilessEntity())
                 .thenReturn(Mono.just(org.springframework.http.ResponseEntity.ok().build()));
+    }
+
+    @SuppressWarnings("unchecked")
+    private void stubSignedUrlResponse(java.util.Map<String, Object> body) {
+        lenient().when(webClient.post()).thenReturn(requestBodyUriSpec);
+        lenient().when(requestBodyUriSpec.uri(anyString(), any(Object[].class))).thenReturn(requestBodySpec);
+        lenient().when(requestBodySpec.bodyValue(any())).thenReturn(requestHeadersSpec);
+        lenient().when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+        lenient().when(responseSpec.onStatus(any(), any())).thenReturn(responseSpec);
+        lenient().when(responseSpec.bodyToMono(java.util.Map.class)).thenReturn(Mono.just(body));
     }
 
     private MultipartFile jpeg() {
