@@ -15,6 +15,9 @@ import com.sistemagas.pedidos.repository.RutaPedidoRepository;
 import com.sistemagas.pedidos.repository.RutaRepository;
 import com.sistemagas.pedidos.repository.UsuarioRepository;
 import com.sistemagas.pedidos.service.RutaService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -29,6 +32,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/rutas")
 @RequiredArgsConstructor
+@Tag(name = "Rutas", description = "Planificacion y seguimiento de rutas de reparto")
 public class RutaController {
 
     private final RutaService rutaService;
@@ -38,14 +42,22 @@ public class RutaController {
 
     @PostMapping("/planificar")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<RutaResponse> planificarRuta(@Valid @RequestBody RutaPlanificarRequest request) {
+    @Operation(summary = "Planificar una nueva ruta de reparto",
+            description = "Crea una ruta asignando un listado de pedidos a un repartidor. " +
+                    "Calcula el orden optimo y la distancia/duracion total usando el proveedor de routing configurado.")
+    public ResponseEntity<RutaResponse> planificarRuta(
+            @Valid @RequestBody RutaPlanificarRequest request) {
         Ruta ruta = rutaService.planificarRuta(request.getRepartidorId(), request.getPedidosIds());
         return new ResponseEntity<>(mapToResponse(ruta), HttpStatus.CREATED);
     }
 
     @GetMapping("/mis-rutas/{repartidorId}")
     @PreAuthorize("hasAnyRole('REPARTIDOR', 'ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<RutaResponse> obtenerMiRutaActiva(@PathVariable Long repartidorId) {
+    @Operation(summary = "Obtener la ruta activa de un repartidor",
+            description = "Retorna la ruta actualmente en curso del repartidor con sus paradas. " +
+                    "Un REPARTIDOR solo puede consultar sus propias rutas.")
+    public ResponseEntity<RutaResponse> obtenerMiRutaActiva(
+            @Parameter(description = "ID del repartidor", example = "5") @PathVariable Long repartidorId) {
         Usuario autenticado = getUsuarioAutenticado();
         Long uid = autenticado.getId();
         if (autenticado.getRol().name().equals("REPARTIDOR") && !uid.equals(repartidorId)) {
@@ -57,8 +69,12 @@ public class RutaController {
 
     @PatchMapping("/paradas/{rutaPedidoId}")
     @PreAuthorize("hasAnyRole('REPARTIDOR', 'ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<Void> actualizarEstadoParada(@PathVariable Long rutaPedidoId,
-                                                       @Valid @RequestBody ActualizarParadaRequest request) {
+    @Operation(summary = "Actualizar el estado de una parada",
+            description = "Marca el estado de entrega de una parada especifica (ej: ENTREGADO, NO_ENTREGADO). " +
+                    "Un REPARTIDOR solo puede modificar paradas de sus propias rutas.")
+    public ResponseEntity<Void> actualizarEstadoParada(
+            @Parameter(description = "ID de la parada (RutaPedido)", example = "10") @PathVariable Long rutaPedidoId,
+            @Valid @RequestBody ActualizarParadaRequest request) {
         Usuario autenticado = getUsuarioAutenticado();
         if (autenticado.getRol().name().equals("REPARTIDOR")) {
             RutaPedido parada = rutaPedidoRepository.findById(rutaPedidoId)
@@ -74,8 +90,12 @@ public class RutaController {
 
     @PatchMapping("/{rutaId}/estado")
     @PreAuthorize("hasAnyRole('REPARTIDOR', 'ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<RutaResponse> cambiarEstadoRuta(@PathVariable Long rutaId,
-                                                          @RequestParam EstadoRuta estado) {
+    @Operation(summary = "Cambiar el estado de una ruta",
+            description = "Cambia el estado general de la ruta (ej: PLANIFICADA, EN_CURSO, COMPLETADA, CANCELADA). " +
+                    "Un REPARTIDOR solo puede cambiar el estado de sus propias rutas.")
+    public ResponseEntity<RutaResponse> cambiarEstadoRuta(
+            @Parameter(description = "ID de la ruta", example = "1") @PathVariable Long rutaId,
+            @Parameter(description = "Nuevo estado de la ruta", example = "EN_CURSO") @RequestParam EstadoRuta estado) {
         Usuario autenticado = getUsuarioAutenticado();
         if (autenticado.getRol().name().equals("REPARTIDOR")) {
             Ruta ruta = rutaRepository.findById(rutaId)

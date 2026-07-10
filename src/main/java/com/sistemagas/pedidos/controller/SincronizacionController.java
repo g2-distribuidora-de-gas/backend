@@ -61,8 +61,11 @@ public class SincronizacionController {
                     + "cuando un pedido de ese cliente se sincroniza via POST /api/sincronizacion. "
                     + "Retorna 409 Conflict si el cliente ya tiene foto o una imagen pendiente.")
     public ResponseEntity<ApiResponse<ImagenPendienteResponse>> subirImagenCliente(
+            @Parameter(description = "ID del cliente al que pertenece la imagen", example = "1")
             @RequestParam("clienteId") Long clienteId,
+            @Parameter(description = "Archivo de imagen (jpg/png/webp). En el form-data el campo debe llamarse 'archivo'.")
             @RequestParam("archivo") MultipartFile archivo,
+            @Parameter(description = "Descripcion opcional de la evidencia (texto libre, no se persiste en Storage)")
             @RequestParam(value = "descripcion", required = false) String descripcion) {
         String objectPath = clienteFotoService.subirImagenPendiente(clienteId, archivo, descripcion);
         return ResponseEntity.status(HttpStatus.CREATED)

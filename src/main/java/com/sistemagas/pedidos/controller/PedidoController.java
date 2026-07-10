@@ -42,7 +42,8 @@ public class PedidoController {
     @PostMapping
     @PreAuthorize("hasAnyRole('PREVENTISTA', 'ADMIN', 'SUPER_ADMIN')")
     @Operation(summary = "Crear un pedido individual (camino online)")
-    public ResponseEntity<ApiResponse<PedidoResponse>> crear(@Valid @RequestBody PedidoRequest request) {
+    public ResponseEntity<ApiResponse<PedidoResponse>> crear(
+            @Valid @RequestBody PedidoRequest request) {
         PedidoResponse response = pedidoService.crear(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(response, "Pedido creado"));
     }
@@ -52,7 +53,10 @@ public class PedidoController {
     @Operation(summary = "Listar todos los pedidos",
             description = "Retorna la lista completa de pedidos registrados")
     public ResponseEntity<ApiResponse<List<PedidoResponse>>> listarTodos(
+            @Parameter(description = "Filtra pedidos actualizados despues de este instante (ISO-8601)",
+                    example = "2026-01-01T00:00:00Z")
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant minUpdatedAt,
+            @Parameter(description = "Cantidad maxima de pedidos a retornar (1-1000)", example = "100")
             @RequestParam(required = false, defaultValue = "100") @Min(1) @Max(1000) Integer limit) {
         return ResponseEntity.ok(ApiResponse.ok(pedidoService.listarTodos(minUpdatedAt, limit)));
     }
@@ -63,7 +67,10 @@ public class PedidoController {
             description = "Retorna los pedidos creados por un usuario en específico")
     public ResponseEntity<ApiResponse<List<PedidoResponse>>> listarPorCreador(
             @Parameter(description = "ID del usuario creador", example = "1") @PathVariable Long creadorId,
+            @Parameter(description = "Filtra pedidos actualizados despues de este instante (ISO-8601)",
+                    example = "2026-01-01T00:00:00Z")
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant minUpdatedAt,
+            @Parameter(description = "Cantidad maxima de pedidos a retornar", example = "100")
             @RequestParam(required = false, defaultValue = "100") Integer limit) {
         return ResponseEntity.ok(ApiResponse.ok(pedidoService.listarPorCreador(creadorId, minUpdatedAt, limit)));
     }
@@ -84,6 +91,7 @@ public class PedidoController {
     @Operation(summary = "Actualizar el estado de un pedido")
     public ResponseEntity<ApiResponse<Void>> actualizarEstado(
             @Parameter(description = "ID del pedido", example = "1") @PathVariable Long id,
+            @Parameter(description = "Nuevo estado del pedido", example = "EN_RUTA")
             @RequestParam("estado") com.sistemagas.pedidos.enums.EstadoPedido estado) {
         pedidoService.actualizarEstado(id, estado);
         return ResponseEntity.ok(ApiResponse.ok(null, "Estado actualizado"));
@@ -93,6 +101,8 @@ public class PedidoController {
     @PreAuthorize("hasAnyRole('PREVENTISTA', 'ADMIN', 'SUPER_ADMIN')")
     @Operation(summary = "Obtener un pedido por su UUID offline")
     public ResponseEntity<ApiResponse<PedidoResponse>> obtenerPorUuidOffline(
+            @Parameter(description = "UUID generado en el cliente al crear el pedido offline",
+                    example = "550e8400-e29b-41d4-a716-446655440000")
             @PathVariable @NotBlank(message = "uuidOffline no puede estar vacio") String uuidOffline) {
         return ResponseEntity.ok(ApiResponse.ok(pedidoService.obtenerPorUuidOffline(uuidOffline)));
     }

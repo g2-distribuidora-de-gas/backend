@@ -8,6 +8,7 @@ import com.sistemagas.pedidos.dto.response.GarrafaResponse;
 import com.sistemagas.pedidos.service.GarrafaService;
 import com.sistemagas.pedidos.util.Constantes;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -34,7 +35,10 @@ public class GarrafaController {
     @GetMapping
     @Operation(summary = "Listar todas las garrafas", description = "Retorna el catálogo completo de garrafas disponibles")
     public ResponseEntity<ApiResponse<List<GarrafaResponse>>> listarTodas(
+            @Parameter(description = "Filtra garrafas actualizadas despues de este instante (ISO-8601)",
+                    example = "2026-01-01T00:00:00Z")
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant minUpdatedAt,
+            @Parameter(description = "Cantidad maxima de garrafas a retornar (1-1000)", example = "100")
             @RequestParam(required = false, defaultValue = "100") @Min(1) @Max(1000) Integer limit) {
         List<GarrafaResponse> garrafas = garrafaService.listarTodas(minUpdatedAt, limit);
         return ResponseEntity.ok(ApiResponse.ok(garrafas));
@@ -52,7 +56,7 @@ public class GarrafaController {
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     @Operation(summary = "Actualizar garrafa", description = "Actualiza los datos de una garrafa existente")
     public ResponseEntity<ApiResponse<GarrafaResponse>> actualizar(
-            @PathVariable Long id,
+            @Parameter(description = "ID de la garrafa", example = "1") @PathVariable Long id,
             @Valid @RequestBody GarrafaRequest request) {
         GarrafaResponse response = garrafaService.actualizar(id, request);
         return ResponseEntity.ok(ApiResponse.ok(response));
@@ -64,7 +68,7 @@ public class GarrafaController {
             description = "Actualiza el precio de una garrafa existente. El nuevo precio aplica solo a pedidos nuevos; " +
                     "los pedidos ya existentes conservan su precioUnitario historico.")
     public ResponseEntity<ApiResponse<GarrafaResponse>> actualizarPrecio(
-            @PathVariable Long id,
+            @Parameter(description = "ID de la garrafa", example = "1") @PathVariable Long id,
             @Valid @RequestBody GarrafaPrecioRequest request) {
         GarrafaResponse response = garrafaService.actualizarPrecio(id, request.getPrecio());
         return ResponseEntity.ok(ApiResponse.ok(response, "Precio actualizado exitosamente"));
@@ -76,7 +80,7 @@ public class GarrafaController {
             description = "Incrementa el stockDisponible de una garrafa sumando la cantidad indicada. " +
                     "Acepta un motivo opcional para auditoria.")
     public ResponseEntity<ApiResponse<GarrafaResponse>> reponerStock(
-            @PathVariable Long id,
+            @Parameter(description = "ID de la garrafa", example = "1") @PathVariable Long id,
             @Valid @RequestBody GarrafaReposicionRequest request) {
         GarrafaResponse response = garrafaService.reponerStock(id, request.getCantidad(), request.getMotivo());
         return ResponseEntity.ok(ApiResponse.ok(response, "Stock repuesto exitosamente"));

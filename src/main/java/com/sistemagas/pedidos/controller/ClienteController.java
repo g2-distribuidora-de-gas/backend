@@ -9,6 +9,7 @@ import com.sistemagas.pedidos.service.ClienteFotoService;
 import com.sistemagas.pedidos.service.ClienteService;
 import com.sistemagas.pedidos.service.SupabaseStorageService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +35,8 @@ public class ClienteController {
 
     @PostMapping
     @PreAuthorize("hasAnyRole('PREVENTISTA', 'ADMIN', 'SUPER_ADMIN')")
+    @Operation(summary = "Crear un cliente",
+            description = "Registra un nuevo cliente con sus datos basicos y coordenadas opcionales.")
     public ResponseEntity<ClienteResponse> crear(@Valid @RequestBody ClienteRequest request) {
         Cliente cliente = Cliente.builder()
                 .nombre(request.getNombre())
@@ -49,7 +52,11 @@ public class ClienteController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('PREVENTISTA', 'ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<ClienteResponse> actualizar(@PathVariable Long id, @Valid @RequestBody ClienteRequest request) {
+    @Operation(summary = "Actualizar un cliente",
+            description = "Modifica los datos de un cliente existente identificado por su ID.")
+    public ResponseEntity<ClienteResponse> actualizar(
+            @Parameter(description = "ID del cliente", example = "1") @PathVariable Long id,
+            @Valid @RequestBody ClienteRequest request) {
         Cliente clienteModificado = Cliente.builder()
                 .nombre(request.getNombre())
                 .telefono(request.getTelefono())
@@ -63,12 +70,17 @@ public class ClienteController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ClienteResponse> obtener(@PathVariable Long id) {
+    @Operation(summary = "Obtener un cliente por su ID",
+            description = "Retorna el detalle de un cliente, incluyendo urlFotoEvidencia firmada si tiene foto asociada.")
+    public ResponseEntity<ClienteResponse> obtener(
+            @Parameter(description = "ID del cliente", example = "1") @PathVariable Long id) {
         Cliente cliente = clienteService.obtenerPorId(id);
         return ResponseEntity.ok(mapToResponse(cliente));
     }
 
     @GetMapping
+    @Operation(summary = "Listar todos los clientes",
+            description = "Retorna la lista completa de clientes registrados.")
     public ResponseEntity<List<ClienteResponse>> listarTodos() {
         List<ClienteResponse> lista = clienteService.listarTodos()
                 .stream()
@@ -79,7 +91,10 @@ public class ClienteController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<Void> eliminar(@PathVariable Long id) {
+    @Operation(summary = "Eliminar un cliente",
+            description = "Da de baja logica al cliente (no se elimina fisicamente).")
+    public ResponseEntity<Void> eliminar(
+            @Parameter(description = "ID del cliente", example = "1") @PathVariable Long id) {
         clienteService.eliminarCliente(id);
         return ResponseEntity.noContent().build();
     }
@@ -90,8 +105,10 @@ public class ClienteController {
             description = "Asocia la primera foto de evidencia al cliente. "
                     + "Retorna 409 Conflict si el cliente ya tiene foto (usar PUT para reemplazar).")
     public ResponseEntity<ApiResponse<ClienteFotoResponse>> subirFoto(
-            @PathVariable Long id,
+            @Parameter(description = "ID del cliente", example = "1") @PathVariable Long id,
+            @Parameter(description = "Archivo de imagen (jpg/png/webp). En el form-data el campo debe llamarse 'archivo'.")
             @RequestParam("archivo") MultipartFile archivo,
+            @Parameter(description = "Descripcion opcional de la evidencia (texto libre, no se persiste en Storage)")
             @RequestParam(value = "descripcion", required = false) String descripcion) {
         ClienteFotoResponse response = clienteFotoService.subirFoto(id, archivo, descripcion);
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -104,8 +121,10 @@ public class ClienteController {
             description = "Reemplaza la foto existente. La version anterior se elimina de Supabase. "
                     + "Retorna 409 Conflict si el cliente no tiene foto previa.")
     public ResponseEntity<ApiResponse<ClienteFotoResponse>> reemplazarFoto(
-            @PathVariable Long id,
+            @Parameter(description = "ID del cliente", example = "1") @PathVariable Long id,
+            @Parameter(description = "Archivo de imagen (jpg/png/webp). En el form-data el campo debe llamarse 'archivo'.")
             @RequestParam("archivo") MultipartFile archivo,
+            @Parameter(description = "Descripcion opcional de la evidencia (texto libre, no se persiste en Storage)")
             @RequestParam(value = "descripcion", required = false) String descripcion) {
         ClienteFotoResponse response = clienteFotoService.reemplazarFoto(id, archivo, descripcion);
         return ResponseEntity.ok(ApiResponse.ok(response, "Foto de fachada reemplazada"));

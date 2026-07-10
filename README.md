@@ -158,21 +158,75 @@ src/main/java/com/sistemagas/pedidos/
 
 ## Endpoints principales
 
-| Metodo | Endpoint | Descripcion |
-|---|---|---|
-| `POST` | `/api/pedidos` | Crear pedido individual |
-| `GET` | `/api/pedidos` | Listar pedidos |
-| `GET` | `/api/pedidos/{id}` | Obtener pedido por ID |
-| `PATCH` | `/api/pedidos/{id}/estado` | Actualizar estado de un pedido |
-| `POST` | `/api/pedidos/{id}/foto` | **Subir foto de fachada como evidencia visual** |
-| `GET` | `/api/pedidos/uuid/{uuidOffline}` | Buscar pedido por UUID offline |
-| `POST` | `/api/garrafas` | Crear garrafa |
-| `GET` | `/api/garrafas` | Listar garrafas |
-| `POST` | `/api/usuarios` | Registrar usuario |
-| `GET` | `/api/usuarios` | Listar usuarios |
-| `POST` | `/api/sincronizar` | **Sincronizar pedidos offline** |
-| `GET` | `/api/sincronizar/estado?uuids=...` | Consultar UUIDs ya procesados |
-| `GET` | `/swagger-ui.html` | Documentacion interactiva |
+> La documentacion completa y actualizada esta disponible en Swagger UI:
+> `http://localhost:8080/swagger-ui.html`
+
+### Autenticacion
+
+| Metodo | Endpoint | Descripcion | Roles |
+|---|---|---|---|
+| `POST` | `/api/auth/login` | Login con email y password | publico |
+| `POST` | `/api/auth/register` | Registrar nuevo usuario | ADMIN, SUPER_ADMIN |
+
+### Usuarios
+
+| Metodo | Endpoint | Descripcion | Roles |
+|---|---|---|---|
+| `GET` | `/api/usuarios` | Listar usuarios | ADMIN, SUPER_ADMIN |
+| `POST` | `/api/usuarios` | Crear usuario | ADMIN, SUPER_ADMIN |
+| `DELETE` | `/api/usuarios/{id}` | Desactivar usuario (baja logica) | ADMIN, SUPER_ADMIN |
+| `PATCH` | `/api/usuarios/{id}/reactivar` | Reactivar usuario | ADMIN, SUPER_ADMIN |
+
+### Clientes
+
+| Metodo | Endpoint | Descripcion | Roles |
+|---|---|---|---|
+| `POST` | `/api/clientes` | Crear cliente | PREVENTISTA, ADMIN, SUPER_ADMIN |
+| `GET` | `/api/clientes` | Listar clientes | cualquier autenticado |
+| `GET` | `/api/clientes/{id}` | Obtener cliente por ID | cualquier autenticado |
+| `PUT` | `/api/clientes/{id}` | Actualizar cliente | PREVENTISTA, ADMIN, SUPER_ADMIN |
+| `DELETE` | `/api/clientes/{id}` | Eliminar cliente (baja logica) | ADMIN, SUPER_ADMIN |
+| `POST` | `/api/clientes/{id}/foto` | Subir primera foto de fachada | PREVENTISTA, ADMIN, SUPER_ADMIN |
+| `PUT` | `/api/clientes/{id}/foto` | Reemplazar foto de fachada | PREVENTISTA, ADMIN, SUPER_ADMIN |
+
+### Pedidos
+
+| Metodo | Endpoint | Descripcion | Roles |
+|---|---|---|---|
+| `POST` | `/api/pedidos` | Crear pedido individual (online) | PREVENTISTA, ADMIN, SUPER_ADMIN |
+| `GET` | `/api/pedidos` | Listar pedidos | PREVENTISTA, ADMIN, SUPER_ADMIN |
+| `GET` | `/api/pedidos/{id}` | Obtener pedido por ID | PREVENTISTA, ADMIN, SUPER_ADMIN |
+| `GET` | `/api/pedidos/creador/{creadorId}` | Listar pedidos por creador | PREVENTISTA, REPARTIDOR, ADMIN, SUPER_ADMIN |
+| `GET` | `/api/pedidos/uuid/{uuidOffline}` | Buscar pedido por UUID offline | PREVENTISTA, ADMIN, SUPER_ADMIN |
+| `PATCH` | `/api/pedidos/{id}/estado` | Actualizar estado de un pedido | REPARTIDOR, ADMIN, SUPER_ADMIN |
+| `POST` | `/api/pedidos/{id}/foto` | **DEPRECATED** Subir foto al pedido (migrar a `/api/clientes/{id}/foto`) | PREVENTISTA, REPARTIDOR, ADMIN, SUPER_ADMIN |
+
+### Garrafas
+
+| Metodo | Endpoint | Descripcion | Roles |
+|---|---|---|---|
+| `GET` | `/api/garrafas` | Listar garrafas del catalogo | cualquier autenticado |
+| `POST` | `/api/garrafas` | Crear garrafa | ADMIN, SUPER_ADMIN |
+| `PUT` | `/api/garrafas/{id}` | Actualizar garrafa | ADMIN, SUPER_ADMIN |
+| `PATCH` | `/api/garrafas/{id}/precio` | Actualizar precio de garrafa | ADMIN, SUPER_ADMIN |
+| `POST` | `/api/garrafas/{id}/reposicion` | Reponer stock de garrafa | ADMIN, SUPER_ADMIN |
+
+### Sincronizacion offline
+
+| Metodo | Endpoint | Descripcion | Roles |
+|---|---|---|---|
+| `POST` | `/api/sincronizar` | Sincronizar lote de pedidos offline | PREVENTISTA, ADMIN, SUPER_ADMIN |
+| `GET` | `/api/sincronizar/estado?uuids=...` | Consultar UUIDs ya procesados | PREVENTISTA, ADMIN, SUPER_ADMIN |
+| `POST` | `/api/sincronizar/clientes/imagenes` | Subir imagen pendiente de cliente (offline) | PREVENTISTA, ADMIN, SUPER_ADMIN |
+
+### Rutas de reparto
+
+| Metodo | Endpoint | Descripcion | Roles |
+|---|---|---|---|
+| `POST` | `/api/rutas/planificar` | Planificar una ruta de reparto | ADMIN, SUPER_ADMIN |
+| `GET` | `/api/rutas/mis-rutas/{repartidorId}` | Obtener la ruta activa de un repartidor | REPARTIDOR, ADMIN, SUPER_ADMIN |
+| `PATCH` | `/api/rutas/{rutaId}/estado` | Cambiar el estado de una ruta | REPARTIDOR, ADMIN, SUPER_ADMIN |
+| `PATCH` | `/api/rutas/paradas/{rutaPedidoId}` | Actualizar estado de una parada | REPARTIDOR, ADMIN, SUPER_ADMIN |
 
 ## Sincronizacion offline
 

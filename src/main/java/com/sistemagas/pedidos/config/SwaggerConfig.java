@@ -21,11 +21,16 @@ public class SwaggerConfig {
                 .info(new Info()
                         .title("API Sistema de Pedidos de Gas")
                         .description("Backend para gestion de pedidos de garrafas de gas con sincronizacion offline-first. " +
-                                "Incluye endpoints para creacion y consulta de pedidos, gestion de usuarios y garrafas, " +
-                                "sincronizacion offline de pedidos, actualizacion de precio de garrafas y reposicion de stock.\n\n" +
-                                "**Autenticación:** Usar POST /api/auth/login para obtener un token JWT, " +
+                                "Incluye endpoints para:\n\n" +
+                                "- Autenticacion y registro de usuarios (con roles PREVENTISTA, REPARTIDOR, ADMIN, SUPER_ADMIN)\n" +
+                                "- Gestion de clientes (incluye foto de fachada como evidencia)\n" +
+                                "- Creacion y consulta de pedidos (online y offline)\n" +
+                                "- Gestion de garrafas (catalogo, precio y reposicion de stock)\n" +
+                                "- Sincronizacion offline de pedidos e imagenes pendientes\n" +
+                                "- Planificacion y seguimiento de rutas de reparto\n\n" +
+                                "**Autenticacion:** Usar `POST /api/auth/login` para obtener un token JWT, " +
                                 "luego hacer clic en 'Authorize' y pegar el token.")
-                        .version("v2.0.0")
+                        .version("0.0.1")
                         .contact(new Contact()
                                 .name("Equipo de Desarrollo")
                                 .email("dev@sistemagas.com"))
