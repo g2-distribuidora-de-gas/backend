@@ -11,8 +11,6 @@ import com.sistemagas.pedidos.model.Cliente;
 import com.sistemagas.pedidos.model.Ruta;
 import com.sistemagas.pedidos.model.RutaPedido;
 import com.sistemagas.pedidos.model.Usuario;
-import com.sistemagas.pedidos.repository.RutaPedidoRepository;
-import com.sistemagas.pedidos.repository.RutaRepository;
 import com.sistemagas.pedidos.repository.UsuarioRepository;
 import com.sistemagas.pedidos.service.RutaService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -37,8 +35,6 @@ public class RutaController {
 
     private final RutaService rutaService;
     private final UsuarioRepository usuarioRepository;
-    private final RutaRepository rutaRepository;
-    private final RutaPedidoRepository rutaPedidoRepository;
 
     @PostMapping("/planificar")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
@@ -76,15 +72,7 @@ public class RutaController {
             @Parameter(description = "ID de la parada (RutaPedido)", example = "10") @PathVariable Long rutaPedidoId,
             @Valid @RequestBody ActualizarParadaRequest request) {
         Usuario autenticado = getUsuarioAutenticado();
-        if (autenticado.getRol().name().equals("REPARTIDOR")) {
-            RutaPedido parada = rutaPedidoRepository.findById(rutaPedidoId)
-                    .orElseThrow(() -> new BusinessException("Parada no encontrada"));
-            Long duenoId = parada.getRuta().getRepartidor().getId();
-            if (!duenoId.equals(autenticado.getId())) {
-                throw new BusinessException("No puedes modificar paradas de otro repartidor");
-            }
-        }
-        rutaService.actualizarEstadoParada(rutaPedidoId, request.getNuevoEstado());
+        rutaService.actualizarEstadoParada(rutaPedidoId, request.getNuevoEstado(), autenticado);
         return ResponseEntity.ok().build();
     }
 
@@ -97,14 +85,7 @@ public class RutaController {
             @Parameter(description = "ID de la ruta", example = "1") @PathVariable Long rutaId,
             @Parameter(description = "Nuevo estado de la ruta", example = "EN_CURSO") @RequestParam EstadoRuta estado) {
         Usuario autenticado = getUsuarioAutenticado();
-        if (autenticado.getRol().name().equals("REPARTIDOR")) {
-            Ruta ruta = rutaRepository.findById(rutaId)
-                    .orElseThrow(() -> new BusinessException("Ruta no encontrada"));
-            if (!ruta.getRepartidor().getId().equals(autenticado.getId())) {
-                throw new BusinessException("No puedes cambiar el estado de una ruta de otro repartidor");
-            }
-        }
-        Ruta ruta = rutaService.cambiarEstadoRuta(rutaId, estado);
+        Ruta ruta = rutaService.cambiarEstadoRuta(rutaId, estado, autenticado);
         return ResponseEntity.ok(mapToResponse(ruta));
     }
 

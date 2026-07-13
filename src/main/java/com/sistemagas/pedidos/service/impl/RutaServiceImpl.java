@@ -99,9 +99,16 @@ public class RutaServiceImpl implements RutaService {
 
     @Override
     @Transactional
-    public void actualizarEstadoParada(Long rutaPedidoId, EstadoEntrega nuevoEstado) {
+    public void actualizarEstadoParada(Long rutaPedidoId, EstadoEntrega nuevoEstado, Usuario autenticado) {
         RutaPedido parada = rutaPedidoRepository.findById(rutaPedidoId)
                 .orElseThrow(() -> new ResourceNotFoundException("Parada no encontrada"));
+
+        if (autenticado.getRol().name().equals("REPARTIDOR")) {
+            Long duenoId = parada.getRuta().getRepartidor().getId();
+            if (!duenoId.equals(autenticado.getId())) {
+                throw new BusinessException("No puedes modificar paradas de otro repartidor");
+            }
+        }
 
         EstadoEntrega actual = parada.getEstadoEntrega();
         if (actual != EstadoEntrega.PENDIENTE) {
@@ -135,9 +142,16 @@ public class RutaServiceImpl implements RutaService {
 
     @Override
     @Transactional
-    public Ruta cambiarEstadoRuta(Long rutaId, EstadoRuta nuevoEstado) {
+    public Ruta cambiarEstadoRuta(Long rutaId, EstadoRuta nuevoEstado, Usuario autenticado) {
         Ruta ruta = rutaRepository.findById(rutaId)
                 .orElseThrow(() -> new ResourceNotFoundException("Ruta no encontrada"));
+                
+        if (autenticado.getRol().name().equals("REPARTIDOR")) {
+            if (!ruta.getRepartidor().getId().equals(autenticado.getId())) {
+                throw new BusinessException("No puedes cambiar el estado de una ruta de otro repartidor");
+            }
+        }
+        
         ruta.setEstado(nuevoEstado);
         return rutaRepository.save(ruta);
     }

@@ -3,6 +3,7 @@ package com.sistemagas.pedidos.service;
 import com.sistemagas.pedidos.enums.EstadoEntrega;
 import com.sistemagas.pedidos.enums.EstadoRuta;
 import com.sistemagas.pedidos.model.Ruta;
+import com.sistemagas.pedidos.model.Usuario;
 
 import java.util.List;
 
@@ -22,10 +23,10 @@ public interface RutaService {
      * Actualiza el estado de una parada específica (ej: PENDIENTE -> ENTREGADO)
      * y si todo está entregado, puede auto-completar la Ruta.
      */
-    void actualizarEstadoParada(Long rutaPedidoId, EstadoEntrega nuevoEstado);
+    void actualizarEstadoParada(Long rutaPedidoId, EstadoEntrega nuevoEstado, Usuario autenticado);
     
     /**
      * Cambia el estado general de la Ruta (ej: EN_CURSO a COMPLETADA)
      */
-    Ruta cambiarEstadoRuta(Long rutaId, EstadoRuta nuevoEstado);
+    Ruta cambiarEstadoRuta(Long rutaId, EstadoRuta nuevoEstado, Usuario autenticado);
 }
