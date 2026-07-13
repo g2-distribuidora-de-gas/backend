@@ -35,9 +35,10 @@ public class RutaServiceImpl implements RutaService {
     private final UsuarioRepository usuarioRepository;
     private final RoutingService routingService;
 
-    // Coordenadas base del depósito (se podría configurar en la BD o application.yml)
-    private static final BigDecimal DEPOSITO_LAT = new BigDecimal("-34.603722");
-    private static final BigDecimal DEPOSITO_LNG = new BigDecimal("-58.381592");
+    // Coordenadas base del depósito (se podría configurar en la BD o
+    // application.yml)
+    private static final BigDecimal DEPOSITO_LAT = new BigDecimal("-26.2072404");
+    private static final BigDecimal DEPOSITO_LNG = new BigDecimal("-58.2123249");
 
     @Override
     @Transactional
@@ -68,7 +69,7 @@ public class RutaServiceImpl implements RutaService {
         // 3. Crear paradas (RutaPedidos) en base al orden devuelto por la API
         for (RouteResultDto.RouteWaypointDto w : optimizacion.getParadasOrdenadas()) {
             Pedido ped = pedidos.stream().filter(p -> p.getId().equals(w.getPedidoId())).findFirst().orElseThrow();
-            
+
             // Marcar el pedido principal como asignado a una ruta
             ped.setEstado(EstadoPedido.EN_PROCESO);
 
@@ -79,7 +80,7 @@ public class RutaServiceImpl implements RutaService {
                     .duracionDesdeAnteriorS(w.getDuracionDesdeAnteriorS())
                     .estadoEntrega(EstadoEntrega.PENDIENTE)
                     .build();
-                    
+
             nuevaRuta.agregarParada(parada);
         }
 
@@ -105,13 +106,13 @@ public class RutaServiceImpl implements RutaService {
         EstadoEntrega actual = parada.getEstadoEntrega();
         if (actual != EstadoEntrega.PENDIENTE) {
             throw new BusinessException(
-                "No se puede cambiar el estado de una parada " + actual
-                + " (solo se permite cambiar desde PENDIENTE)");
+                    "No se puede cambiar el estado de una parada " + actual
+                            + " (solo se permite cambiar desde PENDIENTE)");
         }
-        
+
         parada.setEstadoEntrega(nuevoEstado);
         rutaPedidoRepository.save(parada);
-        
+
         // Actualizamos también el pedido padre si es necesario
         Pedido pedido = parada.getPedido();
         if (nuevoEstado == EstadoEntrega.ENTREGADO) {
@@ -120,12 +121,12 @@ public class RutaServiceImpl implements RutaService {
             pedido.setEstado(EstadoPedido.CANCELADO); // O un estado equivalente
         }
         pedidoRepository.save(pedido);
-        
+
         // Verificar si la ruta entera fue completada
         Ruta ruta = parada.getRuta();
         boolean todoEntregado = ruta.getParadas().stream()
-            .allMatch(p -> p.getEstadoEntrega() != EstadoEntrega.PENDIENTE);
-            
+                .allMatch(p -> p.getEstadoEntrega() != EstadoEntrega.PENDIENTE);
+
         if (todoEntregado) {
             ruta.setEstado(EstadoRuta.COMPLETADA);
             rutaRepository.save(ruta);

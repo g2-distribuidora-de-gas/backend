@@ -1,6 +1,7 @@
 package com.sistemagas.pedidos.service.impl;
 
 import com.sistemagas.pedidos.dto.request.UsuarioRequest;
+import com.sistemagas.pedidos.dto.request.UsuarioUpdateRequest;
 import com.sistemagas.pedidos.dto.response.UsuarioResponse;
 import com.sistemagas.pedidos.exception.BusinessException;
 import com.sistemagas.pedidos.exception.ResourceNotFoundException;
@@ -68,6 +69,36 @@ public class UsuarioServiceImpl implements UsuarioService {
         Usuario usuario = usuarioMapper.toEntityWithPassword(request, encodedPassword);
         Usuario savedUsuario = usuarioRepository.save(usuario);
         log.info("Usuario creado: id={}, dni={}", savedUsuario.getId(), savedUsuario.getDni());
+
+        return usuarioMapper.toResponse(savedUsuario);
+    }
+
+    @Override
+    @Transactional
+    public UsuarioResponse actualizar(Long id, UsuarioUpdateRequest request, Usuario solicitante) {
+        Usuario usuario = usuarioRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(Constantes.MSG_USUARIO_NO_ENCONTRADO));
+
+        // Validar jerarquía: no puede modificar a un nivel superior o igual que no le corresponde
+        rolJerarquiaHelper.validarPermisoModificacion(solicitante.getRol(), usuario.getRol());
+
+        if (request.getRol() != null && request.getRol() != usuario.getRol()) {
+            rolJerarquiaHelper.validarPermisoCreacion(solicitante.getRol(), request.getRol());
+        }
+
+        if (request.getDni() != null && !request.getDni().equals(usuario.getDni()) 
+            && usuarioRepository.existsByDni(request.getDni())) {
+            throw new BusinessException(Constantes.MSG_DNI_DUPLICADO);
+        }
+
+        if (request.getEmail() != null && !request.getEmail().equals(usuario.getEmail()) 
+            && usuarioRepository.existsByEmail(request.getEmail())) {
+            throw new BusinessException(Constantes.MSG_EMAIL_DUPLICADO);
+        }
+
+        usuarioMapper.updateEntity(usuario, request);
+        Usuario savedUsuario = usuarioRepository.save(usuario);
+        log.info("Usuario actualizado: id={}, por={}", savedUsuario.getId(), solicitante.getEmail());
 
         return usuarioMapper.toResponse(savedUsuario);
     }

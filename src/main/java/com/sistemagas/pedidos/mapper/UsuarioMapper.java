@@ -1,6 +1,7 @@
 package com.sistemagas.pedidos.mapper;
 
 import com.sistemagas.pedidos.dto.request.UsuarioRequest;
+import com.sistemagas.pedidos.dto.request.UsuarioUpdateRequest;
 import com.sistemagas.pedidos.dto.response.UsuarioResponse;
 import com.sistemagas.pedidos.model.Usuario;
 import org.mapstruct.AfterMapping;
@@ -30,9 +31,8 @@ public interface UsuarioMapper {
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "passwordHash", ignore = true)
     @Mapping(target = "version", ignore = true)
-    @Mapping(target = "rol", ignore = true)
-    @Mapping(target = "email", ignore = true)
-    void updateEntity(@MappingTarget Usuario usuario, UsuarioRequest request);
+    @Mapping(target = "activo", ignore = true)
+    void updateEntity(@MappingTarget Usuario usuario, UsuarioUpdateRequest request);
 
     @AfterMapping
     default void fillNombreCompleto(Usuario usuario, @MappingTarget UsuarioResponse.UsuarioResponseBuilder responseBuilder) {

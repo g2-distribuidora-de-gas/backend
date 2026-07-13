@@ -1,6 +1,7 @@
 package com.sistemagas.pedidos.controller;
 
 import com.sistemagas.pedidos.dto.request.UsuarioRequest;
+import com.sistemagas.pedidos.dto.request.UsuarioUpdateRequest;
 import com.sistemagas.pedidos.dto.response.ApiResponse;
 import com.sistemagas.pedidos.dto.response.UsuarioResponse;
 import com.sistemagas.pedidos.model.Usuario;
@@ -52,6 +53,17 @@ public class UsuarioController {
     public ResponseEntity<ApiResponse<UsuarioResponse>> crear(@Valid @RequestBody UsuarioRequest request) {
         UsuarioResponse response = usuarioService.crear(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(response));
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    @Operation(summary = "Actualizar usuario", description = "Actualiza los datos de un usuario existente")
+    public ResponseEntity<ApiResponse<UsuarioResponse>> actualizar(
+            @Parameter(description = "ID del usuario", example = "1") @PathVariable Long id,
+            @Valid @RequestBody UsuarioUpdateRequest request) {
+        Usuario solicitante = getUsuarioAutenticado();
+        UsuarioResponse response = usuarioService.actualizar(id, request, solicitante);
+        return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
     @DeleteMapping("/{id}")
