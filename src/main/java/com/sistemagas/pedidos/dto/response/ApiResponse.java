@@ -12,7 +12,9 @@ import java.time.Instant;
 @AllArgsConstructor
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
-@Schema(description = "Envelope estandar de respuesta de la API")
+@Schema(description = "Envelope estandar de respuesta de la API. " +
+        "En respuestas de error, el campo `data` contiene un objeto con `codigo` (string) " +
+        "y `status` (number HTTP) para identificar el tipo de error sin parsear el mensaje.")
 public class ApiResponse<T> {
 
     @Schema(description = "Indica si la operacion fue exitosa", example = "true")
@@ -21,7 +23,8 @@ public class ApiResponse<T> {
     @Schema(description = "Mensaje legible para humanos sobre el resultado", example = "Operacion exitosa")
     private String mensaje;
 
-    @Schema(description = "Payload con el resultado (puede ser null en operaciones sin retorno)")
+    @Schema(description = "Payload con el resultado. En errores contiene `{codigo, status}` para programadores",
+            example = "null")
     private T data;
 
     @Schema(description = "Momento en que se genero la respuesta (UTC)", example = "2026-01-15T10:30:00Z")

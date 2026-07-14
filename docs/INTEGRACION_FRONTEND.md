@@ -108,14 +108,18 @@ async function sincronizar() {
 
 ### Paso 4 -- Errores comunes a manejar
 
-| Status | Significado | Accion |
-|---|---|---|
-| 200 | OK | Limpiar de syncQueue |
-| 409 en `/clientes/imagenes` | Cliente ya tiene foto o ya hay imagen pendiente | Marcar como hecho y continuar (no reintentar) |
-| 409 en `/clientes/{id}/foto` POST | Cliente ya tiene foto | Usar PUT o no subir |
-| 409 en `/clientes/{id}/foto` PUT | Cliente no tiene foto previa | Usar POST o no subir |
-| 404 | Cliente o pedido no existe en server | Re-fetch y reintentar |
-| 5xx | Error del servidor | Reintentar con backoff exponencial |
+| Status | Codigo | Significado | Accion |
+|---|---|---|---|
+| 200 | - | OK | Limpiar de syncQueue |
+| 400 | `GARRAFA_TIPO_OBLIGATORIO` / `GARRAFA_CAPACIDAD_OBLIGATORIA` / `GARRAFA_CAPACIDAD_INCONSISTENTE` | Garrafa invalida al crear/actualizar | Mostrar mensaje al usuario; no reintentar |
+| 400 | `PEDIDO_DUPLICADO` | UUID offline ya existe en el server | Marcar como exitoso y descargar el serverId |
+| 401 | `NO_AUTHENTICATED` | Sin token / token invalido | Redirigir a login |
+| 404 | `USUARIO_NO_ENCONTRADO` | Token valido pero usuario borrado de BD | Forzar re-login |
+| 404 | (generico) | Cliente o pedido no existe en server | Re-fetch y reintentar |
+| 409 en `/clientes/imagenes` | - | Cliente ya tiene foto o ya hay imagen pendiente | Marcar como hecho y continuar (no reintentar) |
+| 409 en `/clientes/{id}/foto` POST | - | Cliente ya tiene foto | Usar PUT o no subir |
+| 409 en `/clientes/{id}/foto` PUT | - | Cliente no tiene foto previa | Usar POST o no subir |
+| 5xx | - | Error del servidor | Reintentar con backoff exponencial |
 
 ---
 
@@ -143,8 +147,40 @@ async function mostrarFotoCliente(clienteId) {
 
 - **Auth**: todas las requests llevan `Authorization: Bearer <jwt>`.
 - **Content-Type**: `application/json` para los DTOs, `multipart/form-data` para uploads.
-- **Errores 4xx**: leer `body.message` (o `body.error`) para mostrar al usuario.
-- **Errores 5xx**: loguear y mostrar "reintentar".
+
+### Formato de respuesta (envelope `ApiResponse`)
+
+Todas las respuestas (exitosas o de error) usan el mismo envelope:
+
+```json
+{
+  "exito": true,
+  "mensaje": "Operacion exitosa",
+  "data": { /* payload o null */ },
+  "timestamp": "2026-07-14T15:30:00Z"
+}
+```
+
+En errores, el `data` no es null sino un objeto con el codigo estructurado:
+
+```json
+{
+  "exito": false,
+  "mensaje": "Usuario autenticado no encontrado en la base de datos",
+  "data": {
+    "codigo": "USUARIO_NO_ENCONTRADO",
+    "status": 404
+  },
+  "timestamp": "2026-07-14T15:30:00Z"
+}
+```
+
+Recomendaciones:
+
+- **Errores 4xx**: leer `body.mensaje` para mostrar al usuario y `body.data.codigo` para
+  logica condicional (ej: si `codigo === "NO_AUTHENTICATED"` redirigir a login).
+- **Errores 5xx**: loguear `body.data.codigo` (si esta presente) y mostrar "reintentar".
+- **Lista completa de codigos**: ver seccion "Codigos de error" del README.
 
 ---
 

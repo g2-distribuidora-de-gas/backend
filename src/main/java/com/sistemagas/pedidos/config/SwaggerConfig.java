@@ -29,7 +29,16 @@ public class SwaggerConfig {
                                 "- Sincronizacion offline de pedidos e imagenes pendientes\n" +
                                 "- Planificacion y seguimiento de rutas de reparto\n\n" +
                                 "**Autenticacion:** Usar `POST /api/auth/login` para obtener un token JWT, " +
-                                "luego hacer clic en 'Authorize' y pegar el token.")
+                                "luego hacer clic en 'Authorize' y pegar el token.\n\n" +
+                                "**Auditoria automatica:** todas las entidades registran automaticamente el usuario " +
+                                "que las creo/modifico. Campos `creadoPor` y `actualizadoPor` visibles en cada " +
+                                "response. Si no hay contexto de seguridad se usa el valor `SYSTEM`.\n\n" +
+                                "**Codigos de error estructurados:** todas las respuestas de error devuelven " +
+                                "un envelope `ApiResponse` con `data.codigo` (string) y `data.status` (number) " +
+                                "para identificar el tipo sin parsear el mensaje. Ejemplos: " +
+                                "`USUARIO_NO_ENCONTRADO` (404), `NO_AUTHENTICATED` (401), " +
+                                "`GARRAFA_TIPO_OBLIGATORIO` (400), `GARRAFA_CAPACIDAD_INCONSISTENTE` (400), " +
+                                "`PEDIDO_DUPLICADO` (400). Ver README para lista completa.")
                         .version("0.0.1")
                         .contact(new Contact()
                                 .name("Equipo de Desarrollo")

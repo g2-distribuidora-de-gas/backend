@@ -87,6 +87,27 @@ SPRING_PROFILES_ACTIVE=prod
 | `SUPABASE_PASS` | (la definida al crear el proyecto) | Password de la DB |
 | `SUPABASE_DB_USER` | `postgres.mqklsftjyesuiazsmuin` | Usuario completo |
 | `SUPABASE_DB_URL` | `jdbc:postgresql://aws-1-ca-central-1.pooler.supabase.com:5432/postgres?sslmode=require&prepareThreshold=0` | JDBC URL completa |
+| `JWT_SECRET` | (random >=64 chars) | Clave firma JWT. **Rechaza arrancar en PROD si es placeholder o < 64 chars** |
+| `DEPOSITO_LAT` | `-26.2072404` | Latitud del deposito (default Formosa). Usado como origen de las rutas optimizadas |
+| `DEPOSITO_LNG` | `-58.2123249` | Longitud del deposito (default Formosa) |
+
+### Validaciones al arranque (PROD)
+
+Al levantar la aplicacion con `SPRING_PROFILES_ACTIVE=prod`, se ejecutan validaciones previas
+(`EnvironmentPostProcessor`). Si alguna falla, la aplicacion **no arranca** y muestra
+mensajes claros en stderr:
+
+- **SupabaseConfigValidator**:
+  - `SUPABASE_PROJECT_REF`, `SUPABASE_PASS`, `SUPABASE_DB_USER`, `SUPABASE_DB_URL` no pueden
+    estar vacios ni tener valores placeholder (`undefined`, `tu-project-ref`, etc.)
+  - Si `app.supabase.storage.enabled=true`: tambien exige `SUPABASE_SERVICE_ROLE_KEY` y bucket
+- **SecurityConfigValidator**:
+  - `JWT_SECRET` no puede estar vacio
+  - `JWT_SECRET` no puede empezar con `clave-secreta-de-desarrollo` (placeholder de dev)
+  - `JWT_SECRET` debe tener al menos 64 caracteres
+  - Genera una clave segura con: `openssl rand -base64 64`
+
+En perfil `dev` ninguna de estas validaciones se ejecuta (podes usar placeholders).
 
 ### 3. Conexion
 
@@ -228,6 +249,40 @@ src/main/java/com/sistemagas/pedidos/
 | `PATCH` | `/api/rutas/{rutaId}/estado` | Cambiar el estado de una ruta | REPARTIDOR, ADMIN, SUPER_ADMIN |
 | `PATCH` | `/api/rutas/paradas/{rutaPedidoId}` | Actualizar estado de una parada | REPARTIDOR, ADMIN, SUPER_ADMIN |
 
+## Auditoria automatica
+
+Todas las entidades que heredan de `Auditable` (`clientes`, `pedidos`, `pedido_detalles`,
+`garrafas`, `usuarios`, `rutas`) registran automaticamente:
+
+- **`creadoPor`**: email del usuario autenticado al momento del INSERT, o `"SYSTEM"` si no
+  hay contexto de seguridad (seeds, jobs batch, scripts)
+- **`actualizadoPor`**: email del usuario autenticado al momento del UPDATE
+- **`createdAt`**, **`updatedAt`**: timestamps UTC gestionados por JPA Auditing
+
+Los campos se exponen en los responses de las APIs. Esto es posible gracias a
+`SecurityAuditorAware`, que extrae el principal del `SecurityContextHolder` (el email del
+JWT). No requiere ninguna accion manual en services ni controllers.
+
+## Codigos de error
+
+Todas las respuestas de error devuelven un `ApiResponse` con `data.codigo` para que el
+cliente identifique el tipo de error sin parsear el mensaje:
+
+| Codigo | HTTP | Cuando |
+|---|---|---|
+| `USUARIO_NO_ENCONTRADO` | 404 | Token JWT valido pero el usuario no existe en BD |
+| `NO_AUTHENTICATED` | 401 | No hay contexto de seguridad (sin token / token invalido) |
+| `GARRAFA_TIPO_OBLIGATORIO` | 400 | Garrafa sin `tipo` |
+| `GARRAFA_CAPACIDAD_OBLIGATORIA` | 400 | Garrafa sin `capacidadKg` |
+| `GARRAFA_CAPACIDAD_INCONSISTENTE` | 400 | `capacidadKg` no coincide con el tipo declarado |
+| `PEDIDO_DUPLICADO` | 400 | `uuidOffline` ya existe |
+
+Y los genericos:
+
+| Codigo | HTTP | Cuando |
+|---|---|---|
+| `BUSINESS_ERROR` | 400 | Cualquier `BusinessException` sin codigo especifico |
+
 ## Sincronizacion offline
 
 Flujo recomendado para clientes (Angular con IndexedDB):
@@ -284,23 +339,43 @@ mvn test
 
 ## Evidencia visual (foto de fachada)
 
-Cada pedido puede llevar asociada una foto de fachada como evidencia visual. El backend
-actua como **proxy seguro** entre el cliente y Supabase Storage, exponiendo un unico
-endpoint REST que sube el archivo, lo persiste y devuelve la URL publica.
+La foto de fachada se asocia al **cliente** (no al pedido). Asi un cliente tiene UNA sola
+foto persistente, sin importar cuantos pedidos tenga. El backend actua como **proxy seguro**
+entre el cliente y Supabase Storage, exponiendo endpoints REST que suben el archivo y
+devuelven una URL firmada (expira en 1h por default).
 
-### Flujo
+### Endpoints canonicos
 
-1. El cliente envia `multipart/form-data` al endpoint `POST /api/pedidos/{id}/foto` con el
-   campo `archivo` (la imagen) y opcionalmente `descripcion` (texto libre).
+| Metodo | Endpoint | Uso |
+|---|---|---|
+| `POST` | `/api/clientes/{id}/foto` | Subir la **primera** foto (falla con 409 si ya tiene) |
+| `PUT` | `/api/clientes/{id}/foto` | **Reemplazar** la foto existente (falla con 409 si no tiene) |
+| `POST` | `/api/sincronizar/clientes/imagenes` | Subir imagen pendiente (flujo offline) |
+
+### Flujo online
+
+1. El cliente envia `multipart/form-data` a `POST /api/clientes/{id}/foto` con el campo
+   `archivo` (la imagen) y opcionalmente `descripcion` (texto libre).
 2. El backend valida tipo (jpg/png/webp) y tamano (default 10MB).
 3. Se sube al bucket de Supabase Storage usando la `service_role_key` (bypasea RLS).
-4. La URL publica devuelta se guarda en la columna `pedidos.url_foto_evidencia`.
-5. La respuesta incluye `pedidoId`, `urlFotoEvidencia`, `nombreArchivo`, `contentType` y `tamanioBytes`.
+4. La URL firmada devuelta se guarda en la columna `clientes.foto_evidencia_path`.
+5. La respuesta incluye `clienteId`, `urlFotoEvidencia`, `nombreArchivo`, `contentType` y
+   `tamanioBytes`. La URL es **firmada** (no publica) y expira en 1h.
+
+### Flujo offline
+
+Ver [docs/INTEGRACION_FRONTEND.md](./docs/INTEGRACION_FRONTEND.md) seccion C.
+
+### Endpoint DEPRECATED
+
+`POST /api/pedidos/{id}/foto` existe pero esta **deprecado**. Migrar a los endpoints de
+cliente arriba. Se mantiene por compatibilidad hacia atras pero sera removido en la
+proxima major version.
 
 ### Ejemplo con cURL
 
 ```bash
-curl -X POST http://localhost:8080/api/pedidos/42/foto \
+curl -X POST http://localhost:8080/api/clientes/7/foto \
   -H "Authorization: Bearer <JWT>" \
   -F "archivo=@/path/fachada.jpg" \
   -F "descripcion=Fachada principal"
