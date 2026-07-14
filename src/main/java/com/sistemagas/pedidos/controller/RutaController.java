@@ -11,8 +11,8 @@ import com.sistemagas.pedidos.model.Cliente;
 import com.sistemagas.pedidos.model.Ruta;
 import com.sistemagas.pedidos.model.RutaPedido;
 import com.sistemagas.pedidos.model.Usuario;
-import com.sistemagas.pedidos.repository.UsuarioRepository;
 import com.sistemagas.pedidos.service.RutaService;
+import com.sistemagas.pedidos.util.AuthenticationHelper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -21,8 +21,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.stream.Collectors;
@@ -34,7 +32,7 @@ import java.util.stream.Collectors;
 public class RutaController {
 
     private final RutaService rutaService;
-    private final UsuarioRepository usuarioRepository;
+    private final AuthenticationHelper authenticationHelper;
 
     @PostMapping("/planificar")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
@@ -54,7 +52,7 @@ public class RutaController {
                     "Un REPARTIDOR solo puede consultar sus propias rutas.")
     public ResponseEntity<RutaResponse> obtenerMiRutaActiva(
             @Parameter(description = "ID del repartidor", example = "5") @PathVariable Long repartidorId) {
-        Usuario autenticado = getUsuarioAutenticado();
+        Usuario autenticado = authenticationHelper.getUsuarioAutenticado();
         Long uid = autenticado.getId();
         if (autenticado.getRol().name().equals("REPARTIDOR") && !uid.equals(repartidorId)) {
             throw new BusinessException("No puedes ver rutas de otro repartidor");
@@ -71,7 +69,7 @@ public class RutaController {
     public ResponseEntity<Void> actualizarEstadoParada(
             @Parameter(description = "ID de la parada (RutaPedido)", example = "10") @PathVariable Long rutaPedidoId,
             @Valid @RequestBody ActualizarParadaRequest request) {
-        Usuario autenticado = getUsuarioAutenticado();
+        Usuario autenticado = authenticationHelper.getUsuarioAutenticado();
         rutaService.actualizarEstadoParada(rutaPedidoId, request, autenticado);
         return ResponseEntity.ok().build();
     }
@@ -84,16 +82,9 @@ public class RutaController {
     public ResponseEntity<RutaResponse> cambiarEstadoRuta(
             @Parameter(description = "ID de la ruta", example = "1") @PathVariable Long rutaId,
             @Parameter(description = "Nuevo estado de la ruta", example = "EN_CURSO") @RequestParam EstadoRuta estado) {
-        Usuario autenticado = getUsuarioAutenticado();
+        Usuario autenticado = authenticationHelper.getUsuarioAutenticado();
         Ruta ruta = rutaService.cambiarEstadoRuta(rutaId, estado, autenticado);
         return ResponseEntity.ok(mapToResponse(ruta));
-    }
-
-    private Usuario getUsuarioAutenticado() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String email = authentication.getName();
-        return usuarioRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Usuario autenticado no encontrado en la base de datos"));
     }
 
     private RutaResponse mapToResponse(Ruta ruta) {

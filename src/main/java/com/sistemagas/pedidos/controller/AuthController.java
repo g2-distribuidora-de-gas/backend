@@ -5,8 +5,8 @@ import com.sistemagas.pedidos.dto.request.RegisterRequest;
 import com.sistemagas.pedidos.dto.response.ApiResponse;
 import com.sistemagas.pedidos.dto.response.AuthResponse;
 import com.sistemagas.pedidos.model.Usuario;
-import com.sistemagas.pedidos.repository.UsuarioRepository;
 import com.sistemagas.pedidos.service.AuthService;
+import com.sistemagas.pedidos.util.AuthenticationHelper;
 import com.sistemagas.pedidos.util.Constantes;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -15,8 +15,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -29,7 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthService authService;
-    private final UsuarioRepository usuarioRepository;
+    private final AuthenticationHelper authenticationHelper;
 
     @PostMapping("/login")
     @Operation(summary = "Iniciar sesión",
@@ -47,19 +45,9 @@ public class AuthController {
                     "y SUPER_ADMIN (crea PREVENTISTA/REPARTIDOR/ADMIN) pueden usar este endpoint.")
     public ResponseEntity<ApiResponse<AuthResponse>> register(
             @Valid @RequestBody RegisterRequest request) {
-        Usuario creador = getUsuarioAutenticado();
+        Usuario creador = authenticationHelper.getUsuarioAutenticado();
         AuthResponse response = authService.register(request, creador);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.ok(response, "Usuario registrado exitosamente"));
-    }
-
-    /**
-     * Obtiene el Usuario completo desde la base de datos a partir del SecurityContext.
-     */
-    private Usuario getUsuarioAutenticado() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String email = authentication.getName();
-        return usuarioRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Usuario autenticado no encontrado en la base de datos"));
     }
 }

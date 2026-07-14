@@ -5,8 +5,8 @@ import com.sistemagas.pedidos.dto.request.UsuarioUpdateRequest;
 import com.sistemagas.pedidos.dto.response.ApiResponse;
 import com.sistemagas.pedidos.dto.response.UsuarioResponse;
 import com.sistemagas.pedidos.model.Usuario;
-import com.sistemagas.pedidos.repository.UsuarioRepository;
 import com.sistemagas.pedidos.service.UsuarioService;
+import com.sistemagas.pedidos.util.AuthenticationHelper;
 import com.sistemagas.pedidos.util.Constantes;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -16,8 +16,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -32,7 +30,7 @@ import java.time.Instant;
 public class UsuarioController {
 
     private final UsuarioService usuarioService;
-    private final UsuarioRepository usuarioRepository;
+    private final AuthenticationHelper authenticationHelper;
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
@@ -61,7 +59,7 @@ public class UsuarioController {
     public ResponseEntity<ApiResponse<UsuarioResponse>> actualizar(
             @Parameter(description = "ID del usuario", example = "1") @PathVariable Long id,
             @Valid @RequestBody UsuarioUpdateRequest request) {
-        Usuario solicitante = getUsuarioAutenticado();
+        Usuario solicitante = authenticationHelper.getUsuarioAutenticado();
         UsuarioResponse response = usuarioService.actualizar(id, request, solicitante);
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
@@ -71,7 +69,7 @@ public class UsuarioController {
     @Operation(summary = "Desactivar usuario", description = "Desactiva lógicamente un usuario")
     public ResponseEntity<ApiResponse<Void>> eliminar(
             @Parameter(description = "ID del usuario", example = "1") @PathVariable Long id) {
-        Usuario solicitante = getUsuarioAutenticado();
+        Usuario solicitante = authenticationHelper.getUsuarioAutenticado();
         usuarioService.eliminar(id, solicitante);
         return ResponseEntity.ok(ApiResponse.ok(null, "Usuario desactivado exitosamente"));
     }
@@ -81,16 +79,8 @@ public class UsuarioController {
     @Operation(summary = "Reactivar usuario", description = "Vuelve a activar un usuario que fue dado de baja lógica")
     public ResponseEntity<ApiResponse<Void>> reactivar(
             @Parameter(description = "ID del usuario", example = "1") @PathVariable Long id) {
-        Usuario solicitante = getUsuarioAutenticado();
+        Usuario solicitante = authenticationHelper.getUsuarioAutenticado();
         usuarioService.reactivar(id, solicitante);
         return ResponseEntity.ok(ApiResponse.ok(null, "Usuario reactivado exitosamente"));
     }
-
-    private Usuario getUsuarioAutenticado() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String email = authentication.getName();
-        return usuarioRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Usuario autenticado no encontrado en la base de datos"));
-    }
 }
-
