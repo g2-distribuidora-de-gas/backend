@@ -56,6 +56,9 @@ class SincronizacionServiceImplTest {
     @Mock
     private UsuarioRepository usuarioRepository;
 
+    @Mock
+    private com.sistemagas.pedidos.service.ClienteService clienteService;
+
     private PedidoMapper pedidoMapper;
     private PedidoDetalleMapper pedidoDetalleMapper;
     private GarrafaStockHelper garrafaStockHelper;
@@ -86,7 +89,9 @@ class SincronizacionServiceImplTest {
         SincronizacionPedidoProcessor pedidoProcessor = new SincronizacionPedidoProcessor(
                 clienteRepository, garrafaStockHelper, pedidoSaver, clienteFotoService);
 
-        service = new SincronizacionServiceImpl(pedidoRepository, pedidoProcessor);
+        SincronizacionClienteProcessor clienteProcessor = new SincronizacionClienteProcessor(clienteService);
+
+        service = new SincronizacionServiceImpl(pedidoRepository, clienteRepository, pedidoProcessor, clienteProcessor);
     }
 
     @Test
@@ -129,9 +134,11 @@ class SincronizacionServiceImplTest {
         verify(pedidoRepository).save(pedidoCaptor.capture());
         Pedido pedidoGuardado = pedidoCaptor.getValue();
         assertThat(pedidoGuardado.getDetalles()).hasSize(2);
-        assertThat(pedidoGuardado.getDetalles().get(0).getSubtotal())
-                .isEqualByComparingTo(new BigDecimal("11000.00"));
-        assertThat(pedidoGuardado.getDetalles().get(1).getSubtotal())
+        assertThat(pedidoGuardado.getDetalles().get(0).getCantidad()).isEqualTo(2);
+        assertThat(pedidoGuardado.getDetalles().get(0).getPrecioUnitario())
+                .isEqualByComparingTo(new BigDecimal("5500.00"));
+        assertThat(pedidoGuardado.getDetalles().get(1).getCantidad()).isEqualTo(1);
+        assertThat(pedidoGuardado.getDetalles().get(1).getPrecioUnitario())
                 .isEqualByComparingTo(new BigDecimal("7800.00"));
     }
 

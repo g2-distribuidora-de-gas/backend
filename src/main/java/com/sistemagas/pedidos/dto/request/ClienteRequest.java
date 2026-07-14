@@ -16,6 +16,10 @@ public class ClienteRequest {
     @Schema(description = "Nombre completo del cliente", example = "Juan Pérez")
     private String nombre;
 
+    @Size(max = 100)
+    @Schema(description = "UUID generado offline (opcional para creaciones online)", example = "123e4567-e89b-12d3-a456-426614174000")
+    private String uuidOffline;
+
     @Size(max = 30)
     @Schema(description = "Telefono de contacto del cliente", example = "+541112345678")
     private String telefono;

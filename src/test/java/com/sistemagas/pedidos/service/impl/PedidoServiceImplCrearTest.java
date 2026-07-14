@@ -115,6 +115,8 @@ class PedidoServiceImplCrearTest {
             return p;
         });
 
+        when(usuarioRepository.findByEmail("test@test.com")).thenReturn(Optional.of(new com.sistemagas.pedidos.model.Usuario()));
+
         service.crear(req, "test@test.com");
 
         ArgumentCaptor<Pedido> captor = ArgumentCaptor.forClass(Pedido.class);
@@ -137,6 +139,8 @@ class PedidoServiceImplCrearTest {
         when(garrafaRepositoryPort.findByIdForUpdate(1L)).thenReturn(Optional.of(garrafa));
         when(garrafaRepositoryPort.save(any(Garrafa.class))).thenAnswer(inv -> inv.getArgument(0));
         when(pedidoRepository.save(any(Pedido.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        when(usuarioRepository.findByEmail("test@test.com")).thenReturn(Optional.of(new com.sistemagas.pedidos.model.Usuario()));
 
         service.crear(req, "test@test.com");
 

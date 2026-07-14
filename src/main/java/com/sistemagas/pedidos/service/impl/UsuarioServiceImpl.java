@@ -61,6 +61,10 @@ public class UsuarioServiceImpl implements UsuarioService {
     @Override
     @Transactional
     public UsuarioResponse crear(UsuarioRequest request) {
+        if (request.getEmail() != null) {
+            request.setEmail(request.getEmail().toLowerCase());
+        }
+
         if (usuarioRepository.existsByDni(request.getDni())) {
             throw new BusinessException(Constantes.MSG_DNI_DUPLICADO);
         }
@@ -76,6 +80,10 @@ public class UsuarioServiceImpl implements UsuarioService {
     @Override
     @Transactional
     public UsuarioResponse actualizar(Long id, UsuarioUpdateRequest request, Usuario solicitante) {
+        if (request.getEmail() != null) {
+            request.setEmail(request.getEmail().toLowerCase());
+        }
+
         Usuario usuario = usuarioRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(Constantes.MSG_USUARIO_NO_ENCONTRADO));
 

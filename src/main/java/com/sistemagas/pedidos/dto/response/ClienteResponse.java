@@ -11,6 +11,7 @@ import java.time.OffsetDateTime;
 @Builder
 public class ClienteResponse {
     private Long id;
+    private String uuidOffline;
     private String nombre;
     private String telefono;
     private String direccion;

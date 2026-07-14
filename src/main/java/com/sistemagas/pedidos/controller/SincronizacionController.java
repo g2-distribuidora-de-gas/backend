@@ -54,6 +54,25 @@ public class SincronizacionController {
         return ResponseEntity.ok(ApiResponse.ok(sincronizacionService.consultarEstado(uuids)));
     }
 
+    @PostMapping("/clientes")
+    @PreAuthorize("hasAnyRole('PREVENTISTA', 'ADMIN', 'SUPER_ADMIN')")
+    @Operation(summary = "Sincronizar lote de clientes creados offline",
+            description = "Recibe clientes guardados en IndexedDB del dispositivo y los procesa.")
+    public ResponseEntity<ApiResponse<com.sistemagas.pedidos.dto.response.SincronizacionClienteResponse>> sincronizarClientes(
+            @Valid @RequestBody com.sistemagas.pedidos.dto.request.SincronizacionClienteRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(sincronizacionService.procesarClientesOffline(request), Constantes.MSG_SINCRONIZACION_OK));
+    }
+
+    @GetMapping("/clientes/estado")
+    @PreAuthorize("hasAnyRole('PREVENTISTA', 'ADMIN', 'SUPER_ADMIN')")
+    @Operation(summary = "Consultar el estado de sincronizacion de clientes (por UUIDs)",
+            description = "Devuelve cuales clientes ya fueron procesados en el servidor.")
+    public ResponseEntity<ApiResponse<SincronizacionEstadoResponse>> consultarEstadoClientes(
+            @Parameter(description = "Lista de UUIDs offline a consultar (separados por coma)")
+            @RequestParam("uuids") List<String> uuids) {
+        return ResponseEntity.ok(ApiResponse.ok(sincronizacionService.consultarEstadoClientes(uuids)));
+    }
+
     @PostMapping(path = "/clientes/imagenes", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAnyRole('PREVENTISTA', 'ADMIN', 'SUPER_ADMIN')")
     @Operation(summary = "Subir imagen pendiente de un cliente (flujo offline)",

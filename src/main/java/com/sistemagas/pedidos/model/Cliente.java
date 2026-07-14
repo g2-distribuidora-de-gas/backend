@@ -11,7 +11,9 @@ import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 
 @Entity
-@Table(name = "clientes")
+@Table(name = "clientes", indexes = {
+    @Index(name = "idx_cliente_uuid_offline", columnList = "uuid_offline")
+})
 @Getter
 @Setter
 @NoArgsConstructor
@@ -22,6 +24,10 @@ public class Cliente extends Auditable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Size(max = 100)
+    @Column(name = "uuid_offline", unique = true, length = 100)
+    private String uuidOffline;
 
     @NotBlank(message = "El nombre es obligatorio")
     @Size(max = 100)

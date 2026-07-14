@@ -14,5 +14,7 @@ public interface ClienteRepository extends JpaRepository<Cliente, Long> {
 
     List<Cliente> findByActivoTrue();
 
+    List<Cliente> findByUuidOfflineIn(List<String> uuidsOffline);
+
     // Puedes agregar más métodos de búsqueda (por nombre, DNI si lo agregas luego, etc.)
 }

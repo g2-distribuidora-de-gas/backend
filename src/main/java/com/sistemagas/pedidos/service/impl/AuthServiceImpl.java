@@ -31,7 +31,8 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional(readOnly = true)
     public AuthResponse login(LoginRequest request) {
-        Usuario usuario = usuarioRepository.findByEmail(request.getEmail())
+        String email = request.getEmail() != null ? request.getEmail().toLowerCase() : null;
+        Usuario usuario = usuarioRepository.findByEmail(email)
                 .orElseThrow(() -> new BusinessException(
                         "Credenciales inválidas",
                         HttpStatus.UNAUTHORIZED, "AUTH_FAILED"));
@@ -58,6 +59,10 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public AuthResponse register(RegisterRequest request, Usuario creador) {
+        if (request.getEmail() != null) {
+            request.setEmail(request.getEmail().toLowerCase());
+        }
+        
         // 1. Validar jerarquía de roles
         rolJerarquiaHelper.validarPermisoCreacion(creador.getRol(), request.getRol());
 

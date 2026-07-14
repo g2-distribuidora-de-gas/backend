@@ -39,6 +39,7 @@ public class ClienteController {
             description = "Registra un nuevo cliente con sus datos basicos y coordenadas opcionales.")
     public ResponseEntity<ClienteResponse> crear(@Valid @RequestBody ClienteRequest request) {
         Cliente cliente = Cliente.builder()
+                .uuidOffline(request.getUuidOffline())
                 .nombre(request.getNombre())
                 .telefono(request.getTelefono())
                 .direccion(request.getDireccion())
@@ -133,6 +134,7 @@ public class ClienteController {
     private ClienteResponse mapToResponse(Cliente cliente) {
         return ClienteResponse.builder()
                 .id(cliente.getId())
+                .uuidOffline(cliente.getUuidOffline())
                 .nombre(cliente.getNombre())
                 .telefono(cliente.getTelefono())
                 .direccion(cliente.getDireccion())
