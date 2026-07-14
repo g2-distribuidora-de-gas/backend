@@ -54,6 +54,10 @@ app:
         - image/jpeg
         - image/png
         - image/webp
+  routing:
+    deposito:
+      lat: ${DEPOSITO_LAT:-26.2072404}
+      lng: ${DEPOSITO_LNG:-58.2123249}
 
 locationiq:
   api-key: ${LOCATIONIQ_API_KEY:}

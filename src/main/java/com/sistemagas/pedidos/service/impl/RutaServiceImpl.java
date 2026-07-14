@@ -1,5 +1,6 @@
 package com.sistemagas.pedidos.service.impl;
 
+import com.sistemagas.pedidos.config.DepositoProperties;
 import com.sistemagas.pedidos.dto.location.RouteResultDto;
 import com.sistemagas.pedidos.dto.request.ActualizarParadaRequest;
 import com.sistemagas.pedidos.enums.EstadoEntrega;
@@ -38,11 +39,17 @@ public class RutaServiceImpl implements RutaService {
     private final UsuarioRepository usuarioRepository;
     private final RoutingService routingService;
     private final GarrafaStockHelper garrafaStockHelper;
+    private final DepositoProperties depositoProperties;
 
-    // Coordenadas base del depósito (se podría configurar en la BD o
-    // application.yml)
-    private static final BigDecimal DEPOSITO_LAT = new BigDecimal("-26.2072404");
-    private static final BigDecimal DEPOSITO_LNG = new BigDecimal("-58.2123249");
+    // Coordenadas del deposito, parametrizables via app.routing.deposito.lat/lng
+    // (ver DepositoProperties). Default: Formosa, Argentina.
+    private BigDecimal depositoLat() {
+        return new BigDecimal(depositoProperties.getLat());
+    }
+
+    private BigDecimal depositoLng() {
+        return new BigDecimal(depositoProperties.getLng());
+    }
 
     @Override
     @Transactional
@@ -56,14 +63,14 @@ public class RutaServiceImpl implements RutaService {
         }
 
         // 1. Llamar a RoutingService
-        RouteResultDto optimizacion = routingService.calcularRutaOptimizada(DEPOSITO_LAT, DEPOSITO_LNG, pedidos);
+        RouteResultDto optimizacion = routingService.calcularRutaOptimizada(depositoLat(), depositoLng(), pedidos);
 
         // 2. Armar la Ruta maestra
         Ruta nuevaRuta = Ruta.builder()
                 .fechaReparto(LocalDate.now())
                 .repartidor(repartidor)
-                .origenLat(DEPOSITO_LAT)
-                .origenLng(DEPOSITO_LNG)
+                .origenLat(depositoLat())
+                .origenLng(depositoLng())
                 .distanciaTotalM(optimizacion.getDistanciaTotalM())
                 .duracionTotalS(optimizacion.getDuracionTotalS())
                 .geometria(optimizacion.getGeometria())
