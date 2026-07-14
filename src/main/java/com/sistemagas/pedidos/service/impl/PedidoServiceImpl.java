@@ -62,7 +62,7 @@ public class PedidoServiceImpl implements PedidoService {
 
     @Override
     @Transactional
-    public PedidoResponse crear(PedidoRequest request) {
+    public PedidoResponse crear(PedidoRequest request, String emailAutenticado) {
         if (request.getUuidOffline() != null
                 && pedidoRepository.existsByUuidOffline(request.getUuidOffline())) {
             throw new BusinessException(Constantes.MSG_PEDIDO_DUPLICADO);
@@ -75,6 +75,9 @@ public class PedidoServiceImpl implements PedidoService {
         if (request.getCreadorId() != null) {
             creador = usuarioRepository.findById(request.getCreadorId())
                     .orElseThrow(() -> new ResourceNotFoundException("Usuario creador no encontrado"));
+        } else if (emailAutenticado != null) {
+            creador = usuarioRepository.findByEmail(emailAutenticado)
+                    .orElseThrow(() -> new ResourceNotFoundException("Usuario autenticado no encontrado en base de datos"));
         }
 
         Pedido pedido = pedidoMapper.toEntity(request);
@@ -140,13 +143,21 @@ public class PedidoServiceImpl implements PedidoService {
             retryFor = {DataAccessResourceFailureException.class, QueryTimeoutException.class},
             maxAttempts = 3,
             backoff = @Backoff(delay = 200, multiplier = 2))
-    public List<PedidoResponse> listarTodos(Instant minUpdatedAt, Integer limit) {
+
+    public List<PedidoResponse> listarTodos(Instant minUpdatedAt, Integer limit, EstadoPedido estado) {
         int pageLimit = (limit != null && limit > 0) ? limit : 100;
         Pageable pageable = PageRequest.of(0, pageLimit, Sort.by("updatedAt").ascending().and(Sort.by("id").ascending()));
         
-        List<Pedido> pedidos = (minUpdatedAt != null)
-                ? pedidoRepository.findByUpdatedAtGreaterThan(minUpdatedAt, pageable)
-                : pedidoRepository.findAllBy(pageable);
+        List<Pedido> pedidos;
+        if (estado != null) {
+            pedidos = (minUpdatedAt != null)
+                    ? pedidoRepository.findByEstadoAndUpdatedAtGreaterThan(estado, minUpdatedAt, pageable)
+                    : pedidoRepository.findByEstado(estado, pageable);
+        } else {
+            pedidos = (minUpdatedAt != null)
+                    ? pedidoRepository.findByUpdatedAtGreaterThan(minUpdatedAt, pageable)
+                    : pedidoRepository.findAllBy(pageable);
+        }
 
         return pedidos.stream()
                 .map(this::buildResponseFor)
@@ -159,13 +170,21 @@ public class PedidoServiceImpl implements PedidoService {
             retryFor = {DataAccessResourceFailureException.class, QueryTimeoutException.class},
             maxAttempts = 3,
             backoff = @Backoff(delay = 200, multiplier = 2))
-    public List<PedidoResponse> listarPorCreador(Long creadorId, Instant minUpdatedAt, Integer limit) {
+
+    public List<PedidoResponse> listarPorCreador(Long creadorId, Instant minUpdatedAt, Integer limit, EstadoPedido estado) {
         int pageLimit = (limit != null && limit > 0) ? limit : 100;
         Pageable pageable = PageRequest.of(0, pageLimit, Sort.by("updatedAt").ascending().and(Sort.by("id").ascending()));
         
-        List<Pedido> pedidos = (minUpdatedAt != null)
-                ? pedidoRepository.findByCreadorIdAndUpdatedAtGreaterThan(creadorId, minUpdatedAt, pageable)
-                : pedidoRepository.findByCreadorId(creadorId, pageable);
+        List<Pedido> pedidos;
+        if (estado != null) {
+            pedidos = (minUpdatedAt != null)
+                    ? pedidoRepository.findByCreadorIdAndEstadoAndUpdatedAtGreaterThan(creadorId, estado, minUpdatedAt, pageable)
+                    : pedidoRepository.findByCreadorIdAndEstado(creadorId, estado, pageable);
+        } else {
+            pedidos = (minUpdatedAt != null)
+                    ? pedidoRepository.findByCreadorIdAndUpdatedAtGreaterThan(creadorId, minUpdatedAt, pageable)
+                    : pedidoRepository.findByCreadorId(creadorId, pageable);
+        }
 
         return pedidos.stream()
                 .map(this::buildResponseFor)

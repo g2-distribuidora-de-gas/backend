@@ -16,6 +16,7 @@ import com.sistemagas.pedidos.model.Pedido;
 import com.sistemagas.pedidos.model.Cliente;
 import com.sistemagas.pedidos.repository.ClienteRepository;
 import com.sistemagas.pedidos.repository.PedidoRepository;
+import com.sistemagas.pedidos.repository.UsuarioRepository;
 import com.sistemagas.pedidos.repository.port.GarrafaRepositoryPort;
 import com.sistemagas.pedidos.service.ClienteFotoService;
 import com.sistemagas.pedidos.util.Constantes;
@@ -52,6 +53,9 @@ class SincronizacionServiceImplTest {
     @Mock
     private ClienteFotoService clienteFotoService;
 
+    @Mock
+    private UsuarioRepository usuarioRepository;
+
     private PedidoMapper pedidoMapper;
     private PedidoDetalleMapper pedidoDetalleMapper;
     private GarrafaStockHelper garrafaStockHelper;
@@ -78,7 +82,7 @@ class SincronizacionServiceImplTest {
         garrafaStockHelper = new GarrafaStockHelper(garrafaRepositoryPort);
 
         SincronizacionPedidoSaver pedidoSaver = new SincronizacionPedidoSaver(
-                pedidoRepository, garrafaRepositoryPort, pedidoMapper, garrafaStockHelper);
+                pedidoRepository, garrafaRepositoryPort, pedidoMapper, garrafaStockHelper, usuarioRepository);
         SincronizacionPedidoProcessor pedidoProcessor = new SincronizacionPedidoProcessor(
                 clienteRepository, garrafaStockHelper, pedidoSaver, clienteFotoService);
 
@@ -110,7 +114,7 @@ class SincronizacionServiceImplTest {
         });
 
         SincronizacionResponse response = service.procesarPedidosOffline(
-                SincronizacionRequest.builder().pedidos(List.of(req)).build());
+                SincronizacionRequest.builder().pedidos(List.of(req)).build(), "test@test.com");
 
         assertThat(response.getProcesados()).hasSize(1);
         assertThat(response.getProcesados().get(0).getUuidOffline()).isEqualTo("uuid-1");
@@ -153,7 +157,7 @@ class SincronizacionServiceImplTest {
         when(pedidoRepository.findByUuidOfflineIn(anyList())).thenReturn(List.of(existente));
 
         SincronizacionResponse response = service.procesarPedidosOffline(
-                SincronizacionRequest.builder().pedidos(List.of(req)).build());
+                SincronizacionRequest.builder().pedidos(List.of(req)).build(), "test@test.com");
 
         assertThat(response.getDuplicados()).containsExactly("uuid-dup");
         assertThat(response.getProcesados()).isEmpty();
@@ -212,7 +216,7 @@ class SincronizacionServiceImplTest {
         SincronizacionResponse response = service.procesarPedidosOffline(
                 SincronizacionRequest.builder()
                         .pedidos(List.of(nuevo, duplicado, sinUuid, sinDetalles))
-                        .build());
+                        .build(), "test@test.com");
 
         assertThat(response.getProcesados()).hasSize(1);
         assertThat(response.getDuplicados()).containsExactly("uuid-dup");
@@ -253,7 +257,7 @@ class SincronizacionServiceImplTest {
                 });
 
         SincronizacionResponse response = service.procesarPedidosOffline(
-                SincronizacionRequest.builder().pedidos(List.of(req1, req2)).build());
+                SincronizacionRequest.builder().pedidos(List.of(req1, req2)).build(), "test@test.com");
 
         assertThat(response.getErrores()).hasSize(1);
         assertThat(response.getErrores().get(0).getUuidOffline()).isEqualTo("uuid-falla");

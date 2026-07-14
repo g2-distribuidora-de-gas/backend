@@ -8,7 +8,9 @@ import com.sistemagas.pedidos.model.GarrafaModel;
 import com.sistemagas.pedidos.model.Pedido;
 import com.sistemagas.pedidos.model.PedidoDetalle;
 import com.sistemagas.pedidos.model.Cliente;
+import com.sistemagas.pedidos.model.Usuario;
 import com.sistemagas.pedidos.repository.PedidoRepository;
+import com.sistemagas.pedidos.repository.UsuarioRepository;
 import com.sistemagas.pedidos.repository.port.GarrafaRepositoryPort;
 import com.sistemagas.pedidos.util.GarrafaStockHelper;
 import lombok.RequiredArgsConstructor;
@@ -27,12 +29,21 @@ public class SincronizacionPedidoSaver {
     private final GarrafaRepositoryPort garrafaRepositoryPort;
     private final PedidoMapper pedidoMapper;
     private final GarrafaStockHelper garrafaStockHelper;
+    private final UsuarioRepository usuarioRepository;
 
     @Transactional(propagation = Propagation.MANDATORY)
-    public Long guardar(PedidoRequest request, Cliente cliente, Map<Long, GarrafaModel> garrafas) {
+    public Long guardar(PedidoRequest request, Cliente cliente, Map<Long, GarrafaModel> garrafas, String emailAutenticado) {
         Pedido pedido = pedidoMapper.toEntity(request);
         pedido.setCliente(cliente);
         pedido.setEstado(EstadoPedido.PENDIENTE);
+        
+        Usuario creador = null;
+        if (request.getCreadorId() != null) {
+            creador = usuarioRepository.findById(request.getCreadorId()).orElse(null);
+        } else if (emailAutenticado != null) {
+            creador = usuarioRepository.findByEmail(emailAutenticado).orElse(null);
+        }
+        pedido.setCreador(creador);
 
         for (PedidoDetalleRequest det : request.getDetalles()) {
             GarrafaModel garrafa = garrafas.get(det.getGarrafaId());

@@ -72,7 +72,7 @@ public class RutaController {
             @Parameter(description = "ID de la parada (RutaPedido)", example = "10") @PathVariable Long rutaPedidoId,
             @Valid @RequestBody ActualizarParadaRequest request) {
         Usuario autenticado = getUsuarioAutenticado();
-        rutaService.actualizarEstadoParada(rutaPedidoId, request.getNuevoEstado(), autenticado);
+        rutaService.actualizarEstadoParada(rutaPedidoId, request, autenticado);
         return ResponseEntity.ok().build();
     }
 

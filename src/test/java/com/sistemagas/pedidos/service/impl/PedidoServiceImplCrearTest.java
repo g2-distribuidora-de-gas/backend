@@ -115,7 +115,7 @@ class PedidoServiceImplCrearTest {
             return p;
         });
 
-        service.crear(req);
+        service.crear(req, "test@test.com");
 
         ArgumentCaptor<Pedido> captor = ArgumentCaptor.forClass(Pedido.class);
         verify(pedidoRepository).save(captor.capture());
@@ -138,7 +138,7 @@ class PedidoServiceImplCrearTest {
         when(garrafaRepositoryPort.save(any(Garrafa.class))).thenAnswer(inv -> inv.getArgument(0));
         when(pedidoRepository.save(any(Pedido.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        service.crear(req);
+        service.crear(req, "test@test.com");
 
         ArgumentCaptor<Pedido> captor = ArgumentCaptor.forClass(Pedido.class);
         verify(pedidoRepository).save(captor.capture());
@@ -159,7 +159,7 @@ class PedidoServiceImplCrearTest {
         when(pedidoRepository.existsByUuidOffline(any())).thenReturn(false);
         when(clienteRepository.findById(99L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.crear(req))
+        assertThatThrownBy(() -> service.crear(req, "test@test.com"))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 

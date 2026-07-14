@@ -59,4 +59,18 @@ public class GarrafaStockHelper {
 
         garrafa.setStockDisponible(stockResultante);
     }
+
+    public void restituirStock(Long garrafaId, Integer cantidad) {
+        if (cantidad == null || cantidad <= 0) return;
+        
+        GarrafaModel garrafa = garrafaRepositoryPort.findByIdForUpdate(garrafaId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        Constantes.MSG_GARRAFA_NO_ENCONTRADA + ": id=" + garrafaId));
+                        
+        Integer stockDisponible = garrafa.getStockDisponible();
+        if (stockDisponible == null) stockDisponible = 0;
+        
+        garrafa.setStockDisponible(stockDisponible + cantidad);
+        garrafaRepositoryPort.save(garrafa);
+    }
 }

@@ -1,6 +1,7 @@
 package com.sistemagas.pedidos.service.impl;
 
 import com.sistemagas.pedidos.dto.location.RouteResultDto;
+import com.sistemagas.pedidos.dto.request.ActualizarParadaRequest;
 import com.sistemagas.pedidos.enums.EstadoEntrega;
 import com.sistemagas.pedidos.enums.EstadoPedido;
 import com.sistemagas.pedidos.enums.EstadoRuta;
@@ -16,6 +17,7 @@ import com.sistemagas.pedidos.repository.RutaRepository;
 import com.sistemagas.pedidos.repository.UsuarioRepository;
 import com.sistemagas.pedidos.service.RoutingService;
 import com.sistemagas.pedidos.service.RutaService;
+import com.sistemagas.pedidos.util.GarrafaStockHelper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -34,6 +37,7 @@ public class RutaServiceImpl implements RutaService {
     private final PedidoRepository pedidoRepository;
     private final UsuarioRepository usuarioRepository;
     private final RoutingService routingService;
+    private final GarrafaStockHelper garrafaStockHelper;
 
     // Coordenadas base del depósito (se podría configurar en la BD o
     // application.yml)
@@ -99,7 +103,7 @@ public class RutaServiceImpl implements RutaService {
 
     @Override
     @Transactional
-    public void actualizarEstadoParada(Long rutaPedidoId, EstadoEntrega nuevoEstado, Usuario autenticado) {
+    public void actualizarEstadoParada(Long rutaPedidoId, ActualizarParadaRequest request, Usuario autenticado) {
         RutaPedido parada = rutaPedidoRepository.findById(rutaPedidoId)
                 .orElseThrow(() -> new ResourceNotFoundException("Parada no encontrada"));
 
@@ -117,16 +121,50 @@ public class RutaServiceImpl implements RutaService {
                             + " (solo se permite cambiar desde PENDIENTE)");
         }
 
+        EstadoEntrega nuevoEstado = request.getNuevoEstado();
         parada.setEstadoEntrega(nuevoEstado);
-        rutaPedidoRepository.save(parada);
 
         // Actualizamos también el pedido padre si es necesario
         Pedido pedido = parada.getPedido();
         if (nuevoEstado == EstadoEntrega.ENTREGADO) {
             pedido.setEstado(EstadoPedido.ENTREGADO);
+            
+            // Entregas parciales
+            if (request.getEntregas() != null && !request.getEntregas().isEmpty()) {
+                Map<Long, Integer> entregasMap = request.getEntregas().stream()
+                        .collect(Collectors.toMap(
+                                com.sistemagas.pedidos.dto.request.DetalleEntregaRequest::getPedidoDetalleId,
+                                com.sistemagas.pedidos.dto.request.DetalleEntregaRequest::getCantidadEntregada));
+                
+                for (com.sistemagas.pedidos.model.PedidoDetalle detalle : pedido.getDetalles()) {
+                    if (entregasMap.containsKey(detalle.getId())) {
+                        Integer cantEntregada = entregasMap.get(detalle.getId());
+                        detalle.setCantidadEntregada(cantEntregada);
+                        
+                        int noEntregadas = detalle.getCantidad() - (cantEntregada != null ? cantEntregada : 0);
+                        if (noEntregadas > 0) {
+                            garrafaStockHelper.restituirStock(detalle.getGarrafaId(), noEntregadas);
+                        }
+                    } else {
+                        detalle.setCantidadEntregada(detalle.getCantidad());
+                    }
+                }
+            } else {
+                for (com.sistemagas.pedidos.model.PedidoDetalle detalle : pedido.getDetalles()) {
+                    detalle.setCantidadEntregada(detalle.getCantidad());
+                }
+            }
         } else if (nuevoEstado == EstadoEntrega.FALLIDO) {
-            pedido.setEstado(EstadoPedido.CANCELADO); // O un estado equivalente
+            parada.setMotivoFallo(request.getMotivoFallo());
+            pedido.setEstado(EstadoPedido.REPROGRAMADO);
+            
+            // Si falló, restituir todo el stock reservado
+            for (com.sistemagas.pedidos.model.PedidoDetalle detalle : pedido.getDetalles()) {
+                garrafaStockHelper.restituirStock(detalle.getGarrafaId(), detalle.getCantidad());
+            }
         }
+        
+        rutaPedidoRepository.save(parada);
         pedidoRepository.save(pedido);
 
         // Verificar si la ruta entera fue completada

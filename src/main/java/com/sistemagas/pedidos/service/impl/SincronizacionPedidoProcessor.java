@@ -26,14 +26,14 @@ public class SincronizacionPedidoProcessor {
     private final ClienteFotoService clienteFotoService;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public SincronizacionResponse.Procesado procesar(PedidoRequest request) {
+    public SincronizacionResponse.Procesado procesar(PedidoRequest request, String emailAutenticado) {
         Cliente cliente = clienteRepository.findById(request.getClienteId())
                 .orElseThrow(() -> new IllegalStateException(
                         "Cliente no encontrado: id=" + request.getClienteId()));
 
         Map<Long, GarrafaModel> garrafas = garrafaStockHelper.cargarYValidar(request.getDetalles());
 
-        Long pedidoId = pedidoSaver.guardar(request, cliente, garrafas);
+        Long pedidoId = pedidoSaver.guardar(request, cliente, garrafas, emailAutenticado);
 
         try {
             clienteFotoService.asociarImagenACliente(cliente.getId());

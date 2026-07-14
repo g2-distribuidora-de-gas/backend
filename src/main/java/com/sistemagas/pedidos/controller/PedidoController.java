@@ -43,8 +43,9 @@ public class PedidoController {
     @PreAuthorize("hasAnyRole('PREVENTISTA', 'ADMIN', 'SUPER_ADMIN')")
     @Operation(summary = "Crear un pedido individual (camino online)")
     public ResponseEntity<ApiResponse<PedidoResponse>> crear(
-            @Valid @RequestBody PedidoRequest request) {
-        PedidoResponse response = pedidoService.crear(request);
+            @Valid @RequestBody PedidoRequest request, org.springframework.security.core.Authentication authentication) {
+        String email = authentication != null ? authentication.getName() : null;
+        PedidoResponse response = pedidoService.crear(request, email);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(response, "Pedido creado"));
     }
 
@@ -57,8 +58,10 @@ public class PedidoController {
                     example = "2026-01-01T00:00:00Z")
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant minUpdatedAt,
             @Parameter(description = "Cantidad maxima de pedidos a retornar (1-1000)", example = "100")
-            @RequestParam(required = false, defaultValue = "100") @Min(1) @Max(1000) Integer limit) {
-        return ResponseEntity.ok(ApiResponse.ok(pedidoService.listarTodos(minUpdatedAt, limit)));
+            @RequestParam(required = false, defaultValue = "100") @Min(1) @Max(1000) Integer limit,
+            @Parameter(description = "Filtro opcional por estado del pedido")
+            @RequestParam(required = false) com.sistemagas.pedidos.enums.EstadoPedido estado) {
+        return ResponseEntity.ok(ApiResponse.ok(pedidoService.listarTodos(minUpdatedAt, limit, estado)));
     }
 
     @GetMapping("/creador/{creadorId}")
@@ -71,8 +74,10 @@ public class PedidoController {
                     example = "2026-01-01T00:00:00Z")
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant minUpdatedAt,
             @Parameter(description = "Cantidad maxima de pedidos a retornar", example = "100")
-            @RequestParam(required = false, defaultValue = "100") Integer limit) {
-        return ResponseEntity.ok(ApiResponse.ok(pedidoService.listarPorCreador(creadorId, minUpdatedAt, limit)));
+            @RequestParam(required = false, defaultValue = "100") Integer limit,
+            @Parameter(description = "Filtro opcional por estado del pedido")
+            @RequestParam(required = false) com.sistemagas.pedidos.enums.EstadoPedido estado) {
+        return ResponseEntity.ok(ApiResponse.ok(pedidoService.listarPorCreador(creadorId, minUpdatedAt, limit, estado)));
     }
 
     @GetMapping("/{id}")

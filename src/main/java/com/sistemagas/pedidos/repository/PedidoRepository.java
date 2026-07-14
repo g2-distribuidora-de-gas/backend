@@ -21,7 +21,11 @@ public interface PedidoRepository extends JpaRepository<Pedido, Long> {
 
     List<Pedido> findByUpdatedAtGreaterThan(Instant minUpdatedAt, Pageable pageable);
     List<Pedido> findAllBy(Pageable pageable);
+    List<Pedido> findByEstadoAndUpdatedAtGreaterThan(com.sistemagas.pedidos.enums.EstadoPedido estado, Instant minUpdatedAt, Pageable pageable);
+    List<Pedido> findByEstado(com.sistemagas.pedidos.enums.EstadoPedido estado, Pageable pageable);
 
     List<Pedido> findByCreadorIdAndUpdatedAtGreaterThan(Long creadorId, Instant minUpdatedAt, Pageable pageable);
     List<Pedido> findByCreadorId(Long creadorId, Pageable pageable);
+    List<Pedido> findByCreadorIdAndEstadoAndUpdatedAtGreaterThan(Long creadorId, com.sistemagas.pedidos.enums.EstadoPedido estado, Instant minUpdatedAt, Pageable pageable);
+    List<Pedido> findByCreadorIdAndEstado(Long creadorId, com.sistemagas.pedidos.enums.EstadoPedido estado, Pageable pageable);
 }

@@ -42,6 +42,10 @@ public class PedidoDetalle extends Auditable {
     @Column(name = "cantidad", nullable = false)
     private Integer cantidad;
 
+    @Min(value = 0, message = "La cantidad entregada no puede ser negativa")
+    @Column(name = "cantidad_entregada")
+    private Integer cantidadEntregada;
+
     @NotNull(message = "El precio unitario es obligatorio")
     @DecimalMin(value = "0.00", message = "El precio unitario no puede ser negativo")
     @Column(name = "precio_unitario", nullable = false, precision = 10, scale = 2)
@@ -56,8 +60,13 @@ public class PedidoDetalle extends Auditable {
     @PrePersist
     @PreUpdate
     public void calcularSubtotal() {
-        if (precioUnitario != null && cantidad != null) {
-            this.subtotal = precioUnitario.multiply(BigDecimal.valueOf(cantidad));
+        if (precioUnitario != null) {
+            Integer cantidadEfectiva = cantidadEntregada != null ? cantidadEntregada : cantidad;
+            if (cantidadEfectiva != null) {
+                this.subtotal = precioUnitario.multiply(BigDecimal.valueOf(cantidadEfectiva));
+            } else {
+                this.subtotal = BigDecimal.ZERO;
+            }
         } else {
             this.subtotal = BigDecimal.ZERO;
         }

@@ -36,7 +36,7 @@ public class SincronizacionServiceImpl implements SincronizacionService {
 
     @Override
     @Transactional(propagation = Propagation.NEVER)
-    public SincronizacionResponse procesarPedidosOffline(SincronizacionRequest request) {
+    public SincronizacionResponse procesarPedidosOffline(SincronizacionRequest request, String emailAutenticado) {
         log.info("Iniciando sincronizacion offline. Pedidos recibidos: {}", request.getPedidos().size());
 
         SincronizacionResponse response = SincronizacionResponse.builder()
@@ -62,7 +62,7 @@ public class SincronizacionServiceImpl implements SincronizacionService {
 
         for (PedidoRequest pedidoReq : request.getPedidos()) {
             try {
-                procesarPedidoIndividual(pedidoReq, existentes, response);
+                procesarPedidoIndividual(pedidoReq, existentes, response, emailAutenticado);
             } catch (Exception ex) {
                 log.error("Error procesando pedido uuidOffline={}: {}",
                         pedidoReq.getUuidOffline(), ex.getMessage(), ex);
@@ -83,7 +83,8 @@ public class SincronizacionServiceImpl implements SincronizacionService {
 
     private void procesarPedidoIndividual(PedidoRequest request,
                                            Map<String, Pedido> existentes,
-                                           SincronizacionResponse response) {
+                                           SincronizacionResponse response,
+                                           String emailAutenticado) {
 
         if (request.getUuidOffline() == null || request.getUuidOffline().isBlank()) {
             response.getErrores().add(SincronizacionResponse.ErrorItem.builder()
@@ -106,7 +107,7 @@ public class SincronizacionServiceImpl implements SincronizacionService {
         }
 
         try {
-            SincronizacionResponse.Procesado procesado = pedidoProcessor.procesar(request);
+            SincronizacionResponse.Procesado procesado = pedidoProcessor.procesar(request, emailAutenticado);
             response.getProcesados().add(procesado);
         } catch (DataIntegrityViolationException ex) {
             log.warn("Conflicto de integridad al procesar pedido uuidOffline={}: {}",

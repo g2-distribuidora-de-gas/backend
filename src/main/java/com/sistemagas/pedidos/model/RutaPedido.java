@@ -50,6 +50,9 @@ public class RutaPedido {
     @Column(name = "estado_entrega", nullable = false, length = 30)
     private EstadoEntrega estadoEntrega;
 
+    @Column(name = "motivo_fallo")
+    private String motivoFallo;
+
     @Version
     private Long version;
 }

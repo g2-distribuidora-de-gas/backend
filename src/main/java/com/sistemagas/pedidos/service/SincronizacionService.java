@@ -8,7 +8,7 @@ import java.util.List;
 
 public interface SincronizacionService {
 
-    SincronizacionResponse procesarPedidosOffline(SincronizacionRequest request);
+    SincronizacionResponse procesarPedidosOffline(SincronizacionRequest request, String emailAutenticado);
 
     SincronizacionEstadoResponse consultarEstado(List<String> uuids);
 }

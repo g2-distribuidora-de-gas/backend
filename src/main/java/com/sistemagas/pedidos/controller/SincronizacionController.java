@@ -36,8 +36,9 @@ public class SincronizacionController {
             description = "Recibe pedidos guardados en IndexedDB del cliente y los procesa. " +
                     "Devuelve 3 listas: procesados, duplicados y errores.")
     public ResponseEntity<ApiResponse<SincronizacionResponse>> sincronizar(
-            @Valid @RequestBody SincronizacionRequest request) {
-        SincronizacionResponse response = sincronizacionService.procesarPedidosOffline(request);
+            @Valid @RequestBody SincronizacionRequest request, org.springframework.security.core.Authentication authentication) {
+        String email = authentication != null ? authentication.getName() : null;
+        SincronizacionResponse response = sincronizacionService.procesarPedidosOffline(request, email);
         return ResponseEntity.ok(ApiResponse.ok(response, Constantes.MSG_SINCRONIZACION_OK));
     }
 

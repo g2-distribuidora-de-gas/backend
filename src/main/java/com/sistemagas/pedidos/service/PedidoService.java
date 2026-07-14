@@ -10,15 +10,15 @@ import java.time.Instant;
 
 public interface PedidoService {
 
-    PedidoResponse crear(PedidoRequest request);
+    PedidoResponse crear(PedidoRequest request, String emailAutenticado);
 
     PedidoResponse obtenerPorUuidOffline(String uuidOffline);
 
     PedidoResponse obtenerPorId(Long id);
 
-    List<PedidoResponse> listarTodos(Instant minUpdatedAt, Integer limit);
+    List<PedidoResponse> listarTodos(Instant minUpdatedAt, Integer limit, com.sistemagas.pedidos.enums.EstadoPedido estado);
 
-    List<PedidoResponse> listarPorCreador(Long creadorId, Instant minUpdatedAt, Integer limit);
+    List<PedidoResponse> listarPorCreador(Long creadorId, Instant minUpdatedAt, Integer limit, com.sistemagas.pedidos.enums.EstadoPedido estado);
 
     void actualizarEstado(Long id, com.sistemagas.pedidos.enums.EstadoPedido estado);
 
