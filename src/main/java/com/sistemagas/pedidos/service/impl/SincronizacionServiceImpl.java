@@ -29,6 +29,9 @@ import java.util.stream.Collectors;
 import com.sistemagas.pedidos.dto.request.ClienteRequest;
 import com.sistemagas.pedidos.dto.request.SincronizacionClienteRequest;
 import com.sistemagas.pedidos.dto.response.SincronizacionClienteResponse;
+import com.sistemagas.pedidos.dto.request.SincronizacionParadasRequest;
+import com.sistemagas.pedidos.dto.request.SincronizacionParadaItemRequest;
+import com.sistemagas.pedidos.dto.response.SincronizacionParadasResponse;
 import com.sistemagas.pedidos.repository.ClienteRepository;
 import com.sistemagas.pedidos.model.Cliente;
 
@@ -41,6 +44,7 @@ public class SincronizacionServiceImpl implements SincronizacionService {
     private final ClienteRepository clienteRepository;
     private final SincronizacionPedidoProcessor pedidoProcessor;
     private final SincronizacionClienteProcessor clienteProcessor;
+    private final SincronizacionParadaProcessor paradaProcessor;
 
     @Override
     @Transactional(propagation = Propagation.NEVER)
@@ -300,6 +304,43 @@ public class SincronizacionServiceImpl implements SincronizacionService {
                 .encontrados(procesados.size())
                 .procesados(procesados)
                 .noEncontrados(noEncontrados)
+                .build();
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.NEVER)
+    public SincronizacionParadasResponse procesarParadasOffline(SincronizacionParadasRequest request, String emailAutenticado) {
+        log.info("Iniciando sincronizacion offline de paradas. Recibidas: {}", request.getParadas().size());
+
+        List<SincronizacionParadasResponse.ParadaProcesada> procesados = new ArrayList<>();
+        List<SincronizacionParadasResponse.ParadaError> errores = new ArrayList<>();
+
+        for (SincronizacionParadaItemRequest item : request.getParadas()) {
+            try {
+                paradaProcessor.procesarParada(item, emailAutenticado);
+                procesados.add(SincronizacionParadasResponse.ParadaProcesada.builder()
+                        .uuidOffline(item.getUuidOffline())
+                        .rutaPedidoId(item.getRutaPedidoId())
+                        .build());
+            } catch (Exception e) {
+                if (e.getMessage() != null && e.getMessage().contains("No se puede cambiar el estado de una parada")) {
+                    // Si ya se cambió el estado desde PENDIENTE, lo tratamos como exitoso para idempotencia
+                    procesados.add(SincronizacionParadasResponse.ParadaProcesada.builder()
+                            .uuidOffline(item.getUuidOffline())
+                            .rutaPedidoId(item.getRutaPedidoId())
+                            .build());
+                } else {
+                    errores.add(SincronizacionParadasResponse.ParadaError.builder()
+                            .uuidOffline(item.getUuidOffline())
+                            .error(e.getMessage())
+                            .build());
+                }
+            }
+        }
+
+        return SincronizacionParadasResponse.builder()
+                .procesados(procesados)
+                .errores(errores)
                 .build();
     }
 }

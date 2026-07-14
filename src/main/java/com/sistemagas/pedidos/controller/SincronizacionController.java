@@ -3,7 +3,10 @@ package com.sistemagas.pedidos.controller;
 import com.sistemagas.pedidos.dto.request.SincronizacionRequest;
 import com.sistemagas.pedidos.dto.response.ApiResponse;
 import com.sistemagas.pedidos.dto.response.SincronizacionEstadoResponse;
+import com.sistemagas.pedidos.dto.response.SincronizacionEstadoResponse;
 import com.sistemagas.pedidos.dto.response.SincronizacionResponse;
+import com.sistemagas.pedidos.dto.request.SincronizacionParadasRequest;
+import com.sistemagas.pedidos.dto.response.SincronizacionParadasResponse;
 import com.sistemagas.pedidos.service.ClienteFotoService;
 import com.sistemagas.pedidos.service.SincronizacionService;
 import com.sistemagas.pedidos.util.Constantes;
@@ -71,6 +74,16 @@ public class SincronizacionController {
             @Parameter(description = "Lista de UUIDs offline a consultar (separados por coma)")
             @RequestParam("uuids") List<String> uuids) {
         return ResponseEntity.ok(ApiResponse.ok(sincronizacionService.consultarEstadoClientes(uuids)));
+    }
+
+    @PostMapping("/paradas")
+    @PreAuthorize("hasAnyRole('REPARTIDOR', 'ADMIN', 'SUPER_ADMIN')")
+    @Operation(summary = "Sincronizar lote de estados de paradas offline",
+            description = "Recibe paradas (entregadas/fallidas) guardadas en el dispositivo y las procesa.")
+    public ResponseEntity<ApiResponse<SincronizacionParadasResponse>> sincronizarParadas(
+            @Valid @RequestBody SincronizacionParadasRequest request, org.springframework.security.core.Authentication authentication) {
+        String email = authentication != null ? authentication.getName() : null;
+        return ResponseEntity.ok(ApiResponse.ok(sincronizacionService.procesarParadasOffline(request, email), Constantes.MSG_SINCRONIZACION_OK));
     }
 
     @PostMapping(path = "/clientes/imagenes", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

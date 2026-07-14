@@ -7,6 +7,8 @@ import com.sistemagas.pedidos.dto.response.SincronizacionResponse;
 import java.util.List;
 import com.sistemagas.pedidos.dto.request.SincronizacionClienteRequest;
 import com.sistemagas.pedidos.dto.response.SincronizacionClienteResponse;
+import com.sistemagas.pedidos.dto.request.SincronizacionParadasRequest;
+import com.sistemagas.pedidos.dto.response.SincronizacionParadasResponse;
 
 public interface SincronizacionService {
 
@@ -17,4 +19,6 @@ public interface SincronizacionService {
     SincronizacionClienteResponse procesarClientesOffline(SincronizacionClienteRequest request);
 
     SincronizacionEstadoResponse consultarEstadoClientes(List<String> uuids);
+
+    SincronizacionParadasResponse procesarParadasOffline(SincronizacionParadasRequest request, String emailAutenticado);
 }
