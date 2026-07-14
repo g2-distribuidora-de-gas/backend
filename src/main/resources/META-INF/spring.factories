@@ -1,2 +1,3 @@
 org.springframework.boot.env.EnvironmentPostProcessor=\
-com.sistemagas.pedidos.config.SupabaseConfigValidator
+com.sistemagas.pedidos.config.SupabaseConfigValidator,\
+com.sistemagas.pedidos.config.SecurityConfigValidator
