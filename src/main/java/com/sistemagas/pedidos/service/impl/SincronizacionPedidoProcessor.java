@@ -27,9 +27,7 @@ public class SincronizacionPedidoProcessor {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public SincronizacionResponse.Procesado procesar(PedidoRequest request, String emailAutenticado) {
-        Cliente cliente = clienteRepository.findById(request.getClienteId())
-                .orElseThrow(() -> new IllegalStateException(
-                        "Cliente no encontrado: id=" + request.getClienteId()));
+        Cliente cliente = resolverCliente(request);
 
         Map<Long, GarrafaModel> garrafas = garrafaStockHelper.cargarYValidar(request.getDetalles());
 
@@ -49,5 +47,18 @@ public class SincronizacionPedidoProcessor {
                 .uuidOffline(request.getUuidOffline())
                 .pedidoId(pedidoId)
                 .build();
+    }
+
+    private Cliente resolverCliente(PedidoRequest request) {
+        String uuidOffline = request.getClienteUuidOffline();
+        if (uuidOffline != null && !uuidOffline.isBlank()) {
+            return clienteRepository.findByUuidOffline(uuidOffline)
+                    .orElseThrow(() -> new IllegalStateException(
+                            "Cliente no encontrado por uuidOffline: " + uuidOffline));
+        }
+        Long clienteId = request.getClienteId();
+        return clienteRepository.findById(clienteId)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Cliente no encontrado: id=" + clienteId));
     }
 }

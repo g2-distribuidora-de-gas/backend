@@ -12,6 +12,8 @@ public interface ClienteRepository extends JpaRepository<Cliente, Long> {
     
     Optional<Cliente> findByTelefono(String telefono);
 
+    Optional<Cliente> findByUuidOffline(String uuidOffline);
+
     List<Cliente> findByActivoTrue();
 
     List<Cliente> findByUuidOfflineIn(List<String> uuidsOffline);

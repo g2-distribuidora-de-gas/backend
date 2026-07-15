@@ -54,21 +54,18 @@ public class PedidoDetalle extends Auditable {
     @Version
     private Long version;
 
-    @Column(name = "subtotal", nullable = false, precision = 10, scale = 2)
+    // subtotal se calcula UNA SOLA VEZ en @PrePersist y NO se modifica en updates,
+    // para preservar el valor historico de venta al confirmar entregas parciales.
+    // Si cantidadEntregada cambia, no debe recalcularse.
+    @Column(name = "subtotal", nullable = false, updatable = false, precision = 10, scale = 2)
     private BigDecimal subtotal;
 
     @PrePersist
-    @PreUpdate
     public void calcularSubtotal() {
-        if (precioUnitario != null) {
-            Integer cantidadEfectiva = cantidadEntregada != null ? cantidadEntregada : cantidad;
-            if (cantidadEfectiva != null) {
-                this.subtotal = precioUnitario.multiply(BigDecimal.valueOf(cantidadEfectiva));
-            } else {
-                this.subtotal = BigDecimal.ZERO;
-            }
-        } else {
-            this.subtotal = BigDecimal.ZERO;
+        if (precioUnitario == null || cantidad == null) {
+            throw new IllegalStateException(
+                    "precioUnitario y cantidad son requeridos para calcular subtotal del PedidoDetalle");
         }
+        this.subtotal = precioUnitario.multiply(BigDecimal.valueOf(cantidad));
     }
 }

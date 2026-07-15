@@ -3,6 +3,7 @@ package com.sistemagas.pedidos.controller;
 import com.sistemagas.pedidos.dto.request.ActualizarParadaRequest;
 import com.sistemagas.pedidos.dto.request.RutaPlanificarRequest;
 import com.sistemagas.pedidos.dto.response.ClienteResponse;
+import com.sistemagas.pedidos.dto.response.DeliveryReadOnlyResponse;
 import com.sistemagas.pedidos.dto.response.RutaPedidoResponse;
 import com.sistemagas.pedidos.dto.response.RutaResponse;
 import com.sistemagas.pedidos.enums.EstadoRuta;
@@ -15,6 +16,9 @@ import com.sistemagas.pedidos.service.RutaService;
 import com.sistemagas.pedidos.util.AuthenticationHelper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -85,6 +89,25 @@ public class RutaController {
         Usuario autenticado = authenticationHelper.getUsuarioAutenticado();
         Ruta ruta = rutaService.cambiarEstadoRuta(rutaId, estado, autenticado);
         return ResponseEntity.ok(mapToResponse(ruta));
+    }
+
+    @GetMapping("/paradas/{rutaPedidoId}/pedido")
+    @PreAuthorize("hasAnyRole('REPARTIDOR', 'ADMIN', 'SUPER_ADMIN')")
+    @Operation(summary = "Detalle de un pedido asociado a una parada (vista del repartidor)",
+            description = "Retorna el pedido vinculado a una parada especifica en formato liviano " +
+                    "optimizado para la app del repartidor (sin campos administrativos). " +
+                    "Un REPARTIDOR solo puede consultar paradas de sus propias rutas.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Pedido devuelto en formato DeliveryReadOnlyResponse",
+                    content = @Content(schema = @Schema(implementation = DeliveryReadOnlyResponse.class))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "La parada pertenece a una ruta de otro repartidor"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "La parada no existe")
+    })
+    public ResponseEntity<DeliveryReadOnlyResponse> obtenerPedidoDeParada(
+            @Parameter(description = "ID de la parada (RutaPedido)", example = "10") @PathVariable Long rutaPedidoId) {
+        Usuario autenticado = authenticationHelper.getUsuarioAutenticado();
+        DeliveryReadOnlyResponse response = rutaService.obtenerPedidoDeParada(rutaPedidoId, autenticado);
+        return ResponseEntity.ok(response);
     }
 
     private RutaResponse mapToResponse(Ruta ruta) {

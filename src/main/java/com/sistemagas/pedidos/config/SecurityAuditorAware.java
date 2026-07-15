@@ -4,6 +4,7 @@ import org.springframework.data.domain.AuditorAware;
 import org.springframework.lang.NonNull;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;
@@ -12,6 +13,8 @@ import java.util.Optional;
 public class SecurityAuditorAware implements AuditorAware<String> {
 
     private static final String SYSTEM_AUDITOR = "SYSTEM";
+
+    private static final int MAX_AUDITOR_LENGTH = 100;
 
     @NonNull
     @Override
@@ -24,6 +27,20 @@ public class SecurityAuditorAware implements AuditorAware<String> {
         if (principal == null || "anonymousUser".equals(principal)) {
             return Optional.of(SYSTEM_AUDITOR);
         }
-        return Optional.of(principal.toString());
+        String name;
+        if (principal instanceof UserDetails userDetails) {
+            name = userDetails.getUsername();
+        } else if (principal instanceof String s) {
+            name = s;
+        } else {
+            name = SYSTEM_AUDITOR;
+        }
+        if (name == null || name.isBlank()) {
+            return Optional.of(SYSTEM_AUDITOR);
+        }
+        if (name.length() > MAX_AUDITOR_LENGTH) {
+            name = name.substring(0, MAX_AUDITOR_LENGTH);
+        }
+        return Optional.of(name);
     }
 }

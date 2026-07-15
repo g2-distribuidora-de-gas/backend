@@ -2,7 +2,9 @@ package com.sistemagas.pedidos.service.impl;
 
 import com.sistemagas.pedidos.dto.request.PedidoDetalleRequest;
 import com.sistemagas.pedidos.dto.request.PedidoRequest;
+import com.sistemagas.pedidos.dto.request.SincronizacionClienteRequest;
 import com.sistemagas.pedidos.dto.request.SincronizacionRequest;
+import com.sistemagas.pedidos.dto.response.SincronizacionClienteResponse;
 import com.sistemagas.pedidos.dto.response.SincronizacionResponse;
 import com.sistemagas.pedidos.enums.TipoGarrafa;
 import com.sistemagas.pedidos.exception.BusinessException;
@@ -146,6 +148,71 @@ class SincronizacionServiceImplTest {
     }
 
     @Test
+    @DisplayName("Sync: pedido con clienteUuidOffline se resuelve por UUID y NO consulta por id")
+    void sync_pedidoConClienteUuidOffline_seResuelveCorrectamente() {
+        Cliente clienteOffline = Cliente.builder()
+                .id(99L)
+                .uuidOffline("uuid-cli-offline")
+                .nombre("Cliente offline")
+                .build();
+
+        PedidoRequest req = PedidoRequest.builder()
+                .uuidOffline("uuid-ped-1")
+                .clienteUuidOffline("uuid-cli-offline")
+                .direccionEntrega("Calle offline 123")
+                .detalles(List.of(PedidoDetalleRequest.builder().garrafaId(1L).cantidad(1).build()))
+                .build();
+
+        when(pedidoRepository.findByUuidOfflineIn(anyList())).thenReturn(List.of());
+        when(clienteRepository.findByUuidOffline("uuid-cli-offline")).thenReturn(Optional.of(clienteOffline));
+        when(garrafaRepositoryPort.findByIdForUpdate(1L)).thenReturn(Optional.of(garrafa10));
+        when(garrafaRepositoryPort.save(any(Garrafa.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(pedidoRepository.save(any(Pedido.class))).thenAnswer(inv -> {
+            Pedido p = inv.getArgument(0);
+            p.setId(123L);
+            return p;
+        });
+
+        SincronizacionResponse response = service.procesarPedidosOffline(
+                SincronizacionRequest.builder().pedidos(List.of(req)).build(), "test@test.com");
+
+        assertThat(response.getProcesados()).hasSize(1);
+        assertThat(response.getProcesados().get(0).getUuidOffline()).isEqualTo("uuid-ped-1");
+        assertThat(response.getProcesados().get(0).getPedidoId()).isEqualTo(123L);
+        assertThat(response.getErrores()).isEmpty();
+
+        verify(clienteRepository).findByUuidOffline("uuid-cli-offline");
+        verify(clienteRepository, never()).findById(any());
+    }
+
+    @Test
+    @DisplayName("Sync: clienteUuidOffline inexistente se reporta como error y NO se descuenta stock")
+    void sync_pedidoConClienteUuidOfflineNoExiste_seReportaComoError() {
+        PedidoRequest req = PedidoRequest.builder()
+                .uuidOffline("uuid-ped-404")
+                .clienteUuidOffline("uuid-inexistente")
+                .direccionEntrega("Calle sin cliente")
+                .detalles(List.of(PedidoDetalleRequest.builder().garrafaId(1L).cantidad(1).build()))
+                .build();
+
+        when(pedidoRepository.findByUuidOfflineIn(anyList())).thenReturn(List.of());
+        when(clienteRepository.findByUuidOffline("uuid-inexistente")).thenReturn(Optional.empty());
+
+        SincronizacionResponse response = service.procesarPedidosOffline(
+                SincronizacionRequest.builder().pedidos(List.of(req)).build(), "test@test.com");
+
+        assertThat(response.getProcesados()).isEmpty();
+        assertThat(response.getErrores()).hasSize(1);
+        assertThat(response.getErrores().get(0).getUuidOffline()).isEqualTo("uuid-ped-404");
+        assertThat(response.getErrores().get(0).getMotivo()).contains("uuidOffline: uuid-inexistente");
+
+        verify(clienteRepository).findByUuidOffline("uuid-inexistente");
+        verify(clienteRepository, never()).findById(any());
+        verify(garrafaRepositoryPort, never()).findByIdForUpdate(any());
+        verify(pedidoRepository, never()).save(any(Pedido.class));
+    }
+
+    @Test
     @DisplayName("Sync: pedido con uuidOffline existente se marca como duplicado sin descontar stock")
     void sync_pedidoDuplicado() {
         Pedido existente = Pedido.builder()
@@ -285,6 +352,74 @@ class SincronizacionServiceImplTest {
                                 PedidoDetalleRequest.builder().garrafaId(99L).cantidad(1).build())))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining(Constantes.MSG_GARRAFA_NO_ENCONTRADA);
+    }
+
+    @Test
+    @DisplayName("Sync pedidos: mismo uuidOffline dos veces en el batch se reporta como duplicado sin DataIntegrityViolation")
+    void sync_pedidoDuplicadoIntraBatch_seReportaComoDuplicadoSinProcesar() {
+        PedidoRequest reqA = PedidoRequest.builder()
+                .uuidOffline("uuid-dup-intra")
+                .clienteId(1L)
+                .direccionEntrega("Calle A")
+                .detalles(List.of(PedidoDetalleRequest.builder().garrafaId(1L).cantidad(1).build()))
+                .build();
+        PedidoRequest reqB = PedidoRequest.builder()
+                .uuidOffline("uuid-dup-intra")
+                .clienteId(1L)
+                .direccionEntrega("Calle A")
+                .detalles(List.of(PedidoDetalleRequest.builder().garrafaId(1L).cantidad(1).build()))
+                .build();
+
+        when(pedidoRepository.findByUuidOfflineIn(anyList())).thenReturn(List.of());
+        when(clienteRepository.findById(1L)).thenReturn(Optional.of(cliente));
+        when(garrafaRepositoryPort.findByIdForUpdate(1L)).thenReturn(Optional.of(garrafa10));
+        when(garrafaRepositoryPort.save(any(Garrafa.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(pedidoRepository.save(any(Pedido.class))).thenAnswer(inv -> {
+            Pedido p = inv.getArgument(0);
+            p.setId(500L);
+            return p;
+        });
+
+        SincronizacionResponse response = service.procesarPedidosOffline(
+                SincronizacionRequest.builder().pedidos(List.of(reqA, reqB)).build(),
+                "test@test.com");
+
+        assertThat(response.getProcesados()).hasSize(1);
+        assertThat(response.getDuplicados()).containsExactly("uuid-dup-intra");
+        assertThat(response.getErrores()).isEmpty();
+        verify(pedidoRepository, times(1)).save(any(Pedido.class));
+    }
+
+    @Test
+    @DisplayName("Sync clientes: mismo uuidOffline dos veces en el batch se reporta como duplicado sin DataIntegrityViolation")
+    void sync_clienteDuplicadoIntraBatch_seReportaComoDuplicadoSinProcesar() {
+        com.sistemagas.pedidos.dto.request.ClienteRequest cliA =
+                new com.sistemagas.pedidos.dto.request.ClienteRequest();
+        cliA.setUuidOffline("uuid-cli-intra");
+        cliA.setNombre("A");
+        cliA.setDireccion("Calle 1");
+
+        com.sistemagas.pedidos.dto.request.ClienteRequest cliB =
+                new com.sistemagas.pedidos.dto.request.ClienteRequest();
+        cliB.setUuidOffline("uuid-cli-intra");
+        cliB.setNombre("B");
+        cliB.setDireccion("Calle 2");
+
+        when(clienteRepository.findByUuidOfflineIn(anyList())).thenReturn(List.of());
+        when(clienteService.crearCliente(any(Cliente.class))).thenAnswer(inv -> {
+            Cliente c = inv.getArgument(0);
+            c.setId(700L);
+            return c;
+        });
+
+        SincronizacionClienteResponse response = service.procesarClientesOffline(
+                SincronizacionClienteRequest.builder().clientes(List.of(cliA, cliB)).build());
+
+        assertThat(response.getDuplicados()).containsExactly("uuid-cli-intra");
+        assertThat(response.getProcesados()).hasSize(1);
+        assertThat(response.getProcesados().get(0).getUuidOffline()).isEqualTo("uuid-cli-intra");
+        assertThat(response.getErrores()).isEmpty();
+        verify(clienteService, times(1)).crearCliente(any(Cliente.class));
     }
 
     @Test

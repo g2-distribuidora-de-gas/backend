@@ -2,9 +2,9 @@ package com.sistemagas.pedidos.dto.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.*;
 
@@ -23,9 +23,16 @@ public class PedidoRequest {
             example = "550e8400-e29b-41d4-a716-446655440000")
     private String uuidOffline;
 
-    @NotNull(message = "El ID del cliente es obligatorio")
-    @Schema(description = "ID del cliente al que se asocia el pedido", example = "7")
+    @Schema(description = "ID del cliente al que se asocia el pedido. Requerido en el flujo online; " +
+            "opcional en sincronizacion offline si se envia clienteUuidOffline",
+            example = "7")
     private Long clienteId;
+
+    @Size(max = 100)
+    @Schema(description = "UUID offline del cliente. Alternativa a clienteId para sincronizacion offline " +
+            "cuando el cliente fue creado en el dispositivo y aun no tiene ID asignado por el servidor",
+            example = "cli-uuid-1")
+    private String clienteUuidOffline;
 
     @Schema(description = "ID del usuario creador del pedido (se completa automaticamente con el usuario autenticado si se omite)",
             example = "3")
@@ -46,4 +53,10 @@ public class PedidoRequest {
     @Valid
     @Schema(description = "Lineas de garrafas que componen el pedido")
     private List<PedidoDetalleRequest> detalles;
+
+    @AssertTrue(message = "Debe especificar clienteId o clienteUuidOffline")
+    private boolean isClienteSpecified() {
+        return clienteId != null
+                || (clienteUuidOffline != null && !clienteUuidOffline.isBlank());
+    }
 }

@@ -13,9 +13,11 @@ import java.util.Optional;
 @Repository
 public interface RutaRepository extends JpaRepository<Ruta, Long> {
 
-    // Útil para buscar la ruta del día actual de un repartidor
+    // Útil para buscar las rutas de un repartidor para una fecha y estado especificos.
+    // Devuelve List porque en produccion puede haber multiples rutas en el mismo estado
+    // (ej: varios lotes planificados). El caller toma la primera.
     @EntityGraph(attributePaths = {"paradas", "paradas.pedido", "paradas.pedido.cliente", "repartidor"})
-    Optional<Ruta> findByRepartidorIdAndFechaRepartoAndEstado(Long repartidorId, LocalDate fechaReparto, EstadoRuta estado);
+    List<Ruta> findByRepartidorIdAndFechaRepartoAndEstado(Long repartidorId, LocalDate fechaReparto, EstadoRuta estado);
 
     @EntityGraph(attributePaths = {"paradas", "paradas.pedido", "paradas.pedido.cliente", "repartidor"})
     Optional<Ruta> findById(Long id);

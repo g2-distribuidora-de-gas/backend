@@ -160,6 +160,20 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error("Parametro requerido faltante: " + ex.getParameterName()));
     }
 
+    @ExceptionHandler(org.springframework.web.context.request.async.AsyncRequestNotUsableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAsyncRequestNotUsable(
+            org.springframework.web.context.request.async.AsyncRequestNotUsableException ex) {
+        log.debug("Cliente cerro la conexion antes de recibir la respuesta: {}", ex.getMessage());
+        return null;
+    }
+
+    @ExceptionHandler(org.apache.catalina.connector.ClientAbortException.class)
+    public ResponseEntity<ApiResponse<Void>> handleClientAbort(
+            org.apache.catalina.connector.ClientAbortException ex) {
+        log.debug("Cliente aborto la conexion: {}", ex.getMessage());
+        return null;
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGenericException(Exception ex) {
         log.error("Error no controlado", ex);

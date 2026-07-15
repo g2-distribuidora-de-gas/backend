@@ -13,6 +13,8 @@ public interface ClienteFotoPendienteRepository extends JpaRepository<ClienteFot
 
     Optional<ClienteFotoPendiente> findFirstByClienteIdOrderByUploadedAtDesc(Long clienteId);
 
+    Optional<ClienteFotoPendiente> findFirstByClienteIdOrderByUploadedAtDescIdDesc(Long clienteId);
+
     void deleteByClienteId(Long clienteId);
 
     List<ClienteFotoPendiente> findByUploadedAtBefore(Instant cutoff);

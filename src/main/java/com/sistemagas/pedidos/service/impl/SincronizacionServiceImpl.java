@@ -72,8 +72,20 @@ public class SincronizacionServiceImpl implements SincronizacionService {
                                 Function.identity(),
                                 (existing, duplicate) -> existing));
 
+        // Detecta duplicados intra-batch ANTES de delegar al processor.
+        // Si el mismo uuidOffline aparece 2+ veces en el mismo request, solo se
+        // procesa la primera ocurrencia; las siguientes van directo a "duplicados"
+        // y no generan DataIntegrityViolationException.
+        java.util.Set<String> uuidsVistosEnBatch = new java.util.HashSet<>();
+
         for (PedidoRequest pedidoReq : request.getPedidos()) {
+            String uuidBatch = pedidoReq.getUuidOffline();
             try {
+                if (uuidBatch != null && !uuidBatch.isBlank()
+                        && !uuidsVistosEnBatch.add(uuidBatch)) {
+                    response.getDuplicados().add(uuidBatch);
+                    continue;
+                }
                 procesarPedidoIndividual(pedidoReq, existentes, response, emailAutenticado);
             } catch (Exception ex) {
                 log.error("Error procesando pedido uuidOffline={}: {}",
@@ -207,8 +219,18 @@ public class SincronizacionServiceImpl implements SincronizacionService {
                                 Function.identity(),
                                 (existing, duplicate) -> existing));
 
+        // Detecta duplicados intra-batch ANTES de delegar al processor.
+        // Mismo patron que en pedidos: solo se procesa la primera ocurrencia.
+        java.util.Set<String> uuidsVistosEnBatch = new java.util.HashSet<>();
+
         for (ClienteRequest clienteReq : request.getClientes()) {
+            String uuidBatch = clienteReq.getUuidOffline();
             try {
+                if (uuidBatch != null && !uuidBatch.isBlank()
+                        && !uuidsVistosEnBatch.add(uuidBatch)) {
+                    response.getDuplicados().add(uuidBatch);
+                    continue;
+                }
                 procesarClienteIndividual(clienteReq, existentes, response);
             } catch (Exception ex) {
                 log.error("Error procesando cliente uuidOffline={}: {}",

@@ -12,6 +12,7 @@ import com.sistemagas.pedidos.service.SupabaseStorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -85,9 +86,10 @@ public class ClienteFotoServiceImpl implements ClienteFotoService {
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado: id=" + clienteId));
 
         Optional<ClienteFotoPendiente> existente =
-                clienteFotoPendienteRepository.findFirstByClienteIdOrderByUploadedAtDesc(clienteId);
+                clienteFotoPendienteRepository.findFirstByClienteIdOrderByUploadedAtDescIdDesc(clienteId);
         if (existente.isPresent()) {
-            throw new BusinessException("El cliente ya tiene una imagen pendiente de asociar.");
+            // Ya hay una pendiente: idempotencia para reintento offline del cliente.
+            return existente.get().getObjectPath();
         }
 
         if (cliente.getFotoEvidenciaPath() != null) {
@@ -102,14 +104,27 @@ public class ClienteFotoServiceImpl implements ClienteFotoService {
                 .objectPath(objectPath)
                 .uploadedAt(Instant.now())
                 .build();
-        clienteFotoPendienteRepository.save(pendiente);
+        try {
+            clienteFotoPendienteRepository.save(pendiente);
+            clienteFotoPendienteRepository.flush();
+        } catch (org.springframework.dao.DataIntegrityViolationException ex) {
+            // Carrera: otro thread cliente gano el INSERT mientras subiamos a Supabase.
+            // Recuperamos la fila ganadora y reportamos su path como respuesta idempotente.
+            log.warn("Carrera UNIQUE en cliente_foto_pendiente para cliente {}. Recuperando pendiente ganadora.",
+                    clienteId);
+            return clienteFotoPendienteRepository
+                    .findFirstByClienteIdOrderByUploadedAtDescIdDesc(clienteId)
+                    .map(ClienteFotoPendiente::getObjectPath)
+                    .orElseThrow(() -> new BusinessException(
+                            "El cliente ya tiene una imagen pendiente de asociar."));
+        }
 
         log.info("Imagen pendiente subida: clienteId={}, objectPath={}", clienteId, objectPath);
         return objectPath;
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void asociarImagenACliente(Long clienteId) {
         Cliente cliente = clienteRepository.findById(clienteId).orElse(null);
         if (cliente == null) {
