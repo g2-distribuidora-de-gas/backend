@@ -4,9 +4,12 @@ Backend en **Spring Boot 3.3 + Java 17** para gestion de pedidos de garrafas de 
 
 ## Caracteristicas
 
-- API REST para gestion de pedidos, garrafas y usuarios
+- API REST para gestion de pedidos, garrafas, clientes y rutas
 - Sincronizacion offline-first con idempotencia (via `uuidOffline`)
+- Dedupe intra-batch y cross-batch para todos los endpoints de sincronizacion
 - Resolucion de conflictos con estrategia **server-wins**
+- Validacion de transiciones de `EstadoRuta` con tabla explicita
+- Reportes administrativos (rutas REPROGRAMADAS con detalle de fallos)
 - PostgreSQL como base de datos (Docker local / Supabase en nube)
 - Flyway para migraciones
 - Documentacion Swagger/OpenAPI
@@ -237,7 +240,11 @@ src/main/java/com/sistemagas/pedidos/
 | Metodo | Endpoint | Descripcion | Roles |
 |---|---|---|---|
 | `POST` | `/api/sincronizar` | Sincronizar lote de pedidos offline | PREVENTISTA, ADMIN, SUPER_ADMIN |
-| `GET` | `/api/sincronizar/estado?uuids=...` | Consultar UUIDs ya procesados | PREVENTISTA, ADMIN, SUPER_ADMIN |
+| `GET` | `/api/sincronizar/estado?uuids=...` | Consultar UUIDs de pedidos ya procesados | PREVENTISTA, ADMIN, SUPER_ADMIN |
+| `POST` | `/api/sincronizar/clientes` | Sincronizar lote de clientes creados offline | PREVENTISTA, ADMIN, SUPER_ADMIN |
+| `GET` | `/api/sincronizar/clientes/estado?uuids=...` | Consultar UUIDs de clientes ya procesados | PREVENTISTA, ADMIN, SUPER_ADMIN |
+| `POST` | `/api/sincronizar/paradas` | Sincronizar lote de paradas (entregadas/fallidas) | REPARTIDOR, ADMIN, SUPER_ADMIN |
+| `POST` | `/api/sincronizar/rutas` | Sincronizar lote de cambios de estado de rutas | REPARTIDOR, ADMIN, SUPER_ADMIN |
 | `POST` | `/api/sincronizar/clientes/imagenes` | Subir imagen pendiente de cliente (offline) | PREVENTISTA, ADMIN, SUPER_ADMIN |
 
 ### Rutas de reparto
@@ -246,8 +253,10 @@ src/main/java/com/sistemagas/pedidos/
 |---|---|---|---|
 | `POST` | `/api/rutas/planificar` | Planificar una ruta de reparto | ADMIN, SUPER_ADMIN |
 | `GET` | `/api/rutas/mis-rutas/{repartidorId}` | Obtener la ruta activa de un repartidor | REPARTIDOR, ADMIN, SUPER_ADMIN |
-| `PATCH` | `/api/rutas/{rutaId}/estado` | Cambiar el estado de una ruta | REPARTIDOR, ADMIN, SUPER_ADMIN |
-| `PATCH` | `/api/rutas/paradas/{rutaPedidoId}` | Actualizar estado de una parada | REPARTIDOR, ADMIN, SUPER_ADMIN |
+| `PATCH` | `/api/rutas/{rutaId}/estado` | Cambiar el estado de una ruta (valida transicion) | REPARTIDOR, ADMIN, SUPER_ADMIN |
+| `PATCH` | `/api/rutas/paradas/{rutaPedidoId}` | Actualizar estado de una parada (online) | REPARTIDOR, ADMIN, SUPER_ADMIN |
+| `GET` | `/api/rutas/paradas/{rutaPedidoId}/pedido` | Detalle liviano del pedido de una parada (app del repartidor) | REPARTIDOR, ADMIN, SUPER_ADMIN |
+| `GET` | `/api/rutas/reprogramadas` | Reporte de rutas REPROGRAMADAS con detalle de paradas fallidas | ADMIN, SUPER_ADMIN |
 
 ## Auditoria automatica
 
@@ -276,6 +285,9 @@ cliente identifique el tipo de error sin parsear el mensaje:
 | `GARRAFA_CAPACIDAD_OBLIGATORIA` | 400 | Garrafa sin `capacidadKg` |
 | `GARRAFA_CAPACIDAD_INCONSISTENTE` | 400 | `capacidadKg` no coincide con el tipo declarado |
 | `PEDIDO_DUPLICADO` | 400 | `uuidOffline` ya existe |
+| `PARADA_NO_AUTORIZADA` | 403 | Repartidor intenta ver/modificar una parada que no le pertenece |
+| `TRANSICION_ESTADO_RUTA_INVALIDA` | 400 | Intento de cambiar `EstadoRuta` por una transicion no permitida (ver tabla) |
+| `RESOURCE_NOT_FOUND` | 404 | Generico cuando no se encuentra un recurso por ID |
 
 Y los genericos:
 
@@ -283,22 +295,67 @@ Y los genericos:
 |---|---|---|
 | `BUSINESS_ERROR` | 400 | Cualquier `BusinessException` sin codigo especifico |
 
-## Sincronizacion offline
+### Tabla de transiciones de `EstadoRuta`
+
+La API valida que los cambios de estado de una ruta respeten esta tabla. Cualquier
+transicion fuera de la tabla devuelve `TRANSICION_ESTADO_RUTA_INVALIDA` (HTTP 400).
+
+| Desde → Hacia | PLANIFICADA | EN_CURSO | COMPLETADA | CANCELADA | REPROGRAMADA |
+|---|---|---|---|---|---|
+| `PLANIFICADA` | — | ✓ | ✗ | ✓ | ✗ |
+| `EN_CURSO` | ✗ | — | ✓ | ✓ | ✓ |
+| `COMPLETADA` | ✗ | ✗ | — (terminal) | ✗ | ✗ |
+| `CANCELADA` | ✗ | ✗ | ✗ | — (terminal) | ✗ |
+| `REPROGRAMADA` | ✗ | ✓ | ✗ | ✓ | — |
+
+Cuando todas las paradas de una ruta son procesadas, el auto-complete dispara:
+
+- 100% entregadas → `COMPLETADA`
+- 100% fallidas → `REPROGRAMADA`
+- mixto (al menos una entregada) → `COMPLETADA`
+
+## Flujo de sincronizacion offline
 
 Flujo recomendado para clientes (Angular con IndexedDB):
 
-1. **Sin conexion:** cliente guarda pedidos en IndexedDB con `uuidOffline` generado localmente
+### Preventista (pedidos y clientes)
+
+1. **Sin conexion:** cliente guarda pedidos/clientes en IndexedDB con `uuidOffline` generado localmente
 2. **Recupera conexion:** cliente hace `GET /api/sincronizar/estado?uuids=...` para saber que ya esta procesado
 3. **Manda pendientes:** cliente hace `POST /api/sincronizar` con la lista de pedidos pendientes
-4. **Procesa respuesta:** servidor devuelve 4 listas: `exitosos`, `duplicados`, `conflictos`, `fallidos`
+4. **Procesa respuesta:** servidor devuelve 3 listas: `procesados`, `duplicados`, `errores`
 5. **Actualiza IndexedDB:** cliente actualiza cada pedido con su ID real del servidor
 
-### Ejemplo de peticion de sincronizacion
+### Repartidor (paradas y rutas)
+
+1. **Sin conexion:** al entregar/fallar una parada, guarda el evento con su `uuidOffline`
+   en IndexedDB. Al iniciar/cancelar/reprogramar una ruta, guarda el cambio con su
+   `uuidOffline`.
+2. **Recupera conexion:** cliente hace `POST /api/sincronizar/paradas` y/o
+   `POST /api/sincronizar/rutas` con la lista de eventos pendientes.
+3. **Procesa respuesta:** servidor devuelve 2 listas: `procesados`, `errores`.
+4. **Actualiza IndexedDB:** cliente descarta los `procesados` y conserva los `errores`
+   para el proximo reintento.
+
+### Idempotencia
+
+Todos los endpoints de sincronizacion implementan idempotencia via dos mecanismos:
+
+- **Dedupe intra-batch** (`Set<String> uuidsVistosEnBatch` + `Set<Long> idsVistosEnBatch`):
+  si el mismo `uuidOffline` aparece 2+ veces en el mismo request, solo se procesa la
+  primera ocurrencia; las siguientes van directo a `procesados` (sin re-procesar).
+- **Idempotencia cross-batch** (por `uuidOffline` ya persistido en BD): un reenvio del
+  mismo lote se reporta como duplicado o procesado segun el caso, sin generar
+  `DataIntegrityViolationException`.
+
+Para paradas, la re-aplicacion del mismo estado se detecta por el prefijo del mensaje
+de error de transicion (`MSG_ESTADO_NO_CAMBIABLE`) y se cuenta como procesado.
+
+### Ejemplo de peticion de sincronizacion de pedidos
 
 ```json
 POST /api/sincronizar
 {
-  "clienteFecha": "2024-01-15T10:30:00Z",
   "pedidos": [
     {
       "uuidOffline": "abc-123",
@@ -316,9 +373,7 @@ POST /api/sincronizar
 
 ```json
 {
-  "mensaje": "Sincronizacion procesada",
-  "total": 1,
-  "exitosos": [
+  "procesados": [
     {
       "uuidOffline": "abc-123",
       "id": 42,
@@ -326,8 +381,39 @@ POST /api/sincronizar
     }
   ],
   "duplicados": [],
-  "conflictos": [],
-  "fallidos": []
+  "errores": []
+}
+```
+
+### Ejemplo de sincronizacion de paradas
+
+```json
+POST /api/sincronizar/paradas
+{
+  "paradas": [
+    {
+      "rutaPedidoId": 100,
+      "uuidOffline": "evt-parada-1",
+      "nuevoEstado": "ENTREGADO"
+    },
+    {
+      "rutaPedidoId": 101,
+      "uuidOffline": "evt-parada-2",
+      "nuevoEstado": "FALLIDO",
+      "motivoFallo": "Cliente ausente"
+    }
+  ]
+}
+```
+
+### Ejemplo de sincronizacion de cambios de ruta
+
+```json
+POST /api/sincronizar/rutas
+{
+  "cambios": [
+    { "rutaId": 5, "uuidOffline": "evt-ruta-1", "nuevoEstado": "EN_CURSO" }
+  ]
 }
 ```
 

@@ -15,6 +15,8 @@ public final class Constantes {
     public static final String MSG_DNI_DUPLICADO = "Ya existe un usuario con ese DNI";
     public static final String MSG_EMAIL_DUPLICADO = "Ya existe un usuario con ese email";
     public static final String MSG_TIPO_GARRAFA_DUPLICADO = "Ya existe una garrafa con ese tipo";
+    public static final String MSG_ESTADO_NO_CAMBIABLE = "No se puede cambiar el estado de una parada %s (solo se permite cambiar desde PENDIENTE)";
+    public static final String MSG_TRANSICION_RUTA_INVALIDA = "No se puede cambiar la ruta de %s a %s";
 
     public static final String API_GARRAFAS = "/api/garrafas";
     public static final String API_USUARIOS = "/api/usuarios";

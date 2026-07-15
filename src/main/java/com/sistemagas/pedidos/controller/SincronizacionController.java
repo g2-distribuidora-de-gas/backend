@@ -7,6 +7,8 @@ import com.sistemagas.pedidos.dto.response.SincronizacionEstadoResponse;
 import com.sistemagas.pedidos.dto.response.SincronizacionResponse;
 import com.sistemagas.pedidos.dto.request.SincronizacionParadasRequest;
 import com.sistemagas.pedidos.dto.response.SincronizacionParadasResponse;
+import com.sistemagas.pedidos.dto.request.SincronizacionRutasRequest;
+import com.sistemagas.pedidos.dto.response.SincronizacionRutasResponse;
 import com.sistemagas.pedidos.service.ClienteFotoService;
 import com.sistemagas.pedidos.service.SincronizacionService;
 import com.sistemagas.pedidos.util.Constantes;
@@ -84,6 +86,20 @@ public class SincronizacionController {
             @Valid @RequestBody SincronizacionParadasRequest request, org.springframework.security.core.Authentication authentication) {
         String email = authentication != null ? authentication.getName() : null;
         return ResponseEntity.ok(ApiResponse.ok(sincronizacionService.procesarParadasOffline(request, email), Constantes.MSG_SINCRONIZACION_OK));
+    }
+
+    @PostMapping("/rutas")
+    @PreAuthorize("hasAnyRole('REPARTIDOR', 'ADMIN', 'SUPER_ADMIN')")
+    @Operation(summary = "Sincronizar lote de cambios de estado de rutas offline",
+            description = "Recibe cambios de estado de rutas (EN_CURSO, CANCELADA, COMPLETADA, REPROGRAMADA) "
+                    + "guardados en el dispositivo y los aplica respetando la tabla de transiciones validas.")
+    public ResponseEntity<ApiResponse<SincronizacionRutasResponse>> sincronizarRutas(
+            @Valid @RequestBody SincronizacionRutasRequest request,
+            org.springframework.security.core.Authentication authentication) {
+        String email = authentication != null ? authentication.getName() : null;
+        return ResponseEntity.ok(ApiResponse.ok(
+                sincronizacionService.procesarRutasOffline(request, email),
+                Constantes.MSG_SINCRONIZACION_OK));
     }
 
     @PostMapping(path = "/clientes/imagenes", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

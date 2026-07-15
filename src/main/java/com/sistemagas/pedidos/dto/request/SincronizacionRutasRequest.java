@@ -5,14 +5,15 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import lombok.Builder;
 import lombok.Data;
+
 import java.util.List;
 
 @Data
 @Builder
-@Schema(description = "DTO para sincronizar un lote de paradas offline")
-public class SincronizacionParadasRequest {
+@Schema(description = "DTO para sincronizar un lote de cambios de estado de rutas offline")
+public class SincronizacionRutasRequest {
 
-    @NotEmpty(message = "La lista de paradas no puede estar vacía")
+    @NotEmpty(message = "La lista de cambios no puede estar vacia")
     @Valid
-    private List<SincronizacionParadaItemRequest> paradas;
+    private List<SincronizacionRutaItemRequest> cambios;
 }

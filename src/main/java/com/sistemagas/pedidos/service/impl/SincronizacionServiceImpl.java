@@ -4,9 +4,12 @@ import com.sistemagas.pedidos.dto.request.PedidoRequest;
 import com.sistemagas.pedidos.dto.request.SincronizacionRequest;
 import com.sistemagas.pedidos.dto.response.SincronizacionEstadoResponse;
 import com.sistemagas.pedidos.dto.response.SincronizacionResponse;
+import com.sistemagas.pedidos.exception.BusinessException;
+import com.sistemagas.pedidos.exception.ResourceNotFoundException;
 import com.sistemagas.pedidos.model.Pedido;
 import com.sistemagas.pedidos.repository.PedidoRepository;
 import com.sistemagas.pedidos.service.SincronizacionService;
+import com.sistemagas.pedidos.util.Constantes;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessResourceFailureException;
@@ -20,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -32,6 +36,9 @@ import com.sistemagas.pedidos.dto.response.SincronizacionClienteResponse;
 import com.sistemagas.pedidos.dto.request.SincronizacionParadasRequest;
 import com.sistemagas.pedidos.dto.request.SincronizacionParadaItemRequest;
 import com.sistemagas.pedidos.dto.response.SincronizacionParadasResponse;
+import com.sistemagas.pedidos.dto.request.SincronizacionRutaItemRequest;
+import com.sistemagas.pedidos.dto.request.SincronizacionRutasRequest;
+import com.sistemagas.pedidos.dto.response.SincronizacionRutasResponse;
 import com.sistemagas.pedidos.repository.ClienteRepository;
 import com.sistemagas.pedidos.model.Cliente;
 
@@ -45,6 +52,7 @@ public class SincronizacionServiceImpl implements SincronizacionService {
     private final SincronizacionPedidoProcessor pedidoProcessor;
     private final SincronizacionClienteProcessor clienteProcessor;
     private final SincronizacionParadaProcessor paradaProcessor;
+    private final SincronizacionRutaProcessor rutaProcessor;
 
     @Override
     @Transactional(propagation = Propagation.NEVER)
@@ -337,32 +345,172 @@ public class SincronizacionServiceImpl implements SincronizacionService {
         List<SincronizacionParadasResponse.ParadaProcesada> procesados = new ArrayList<>();
         List<SincronizacionParadasResponse.ParadaError> errores = new ArrayList<>();
 
+        Set<String> uuidsVistosEnBatch = new HashSet<>();
+        Set<Long> paradasVistasEnBatch = new HashSet<>();
+
         for (SincronizacionParadaItemRequest item : request.getParadas()) {
             try {
-                paradaProcessor.procesarParada(item, emailAutenticado);
-                procesados.add(SincronizacionParadasResponse.ParadaProcesada.builder()
-                        .uuidOffline(item.getUuidOffline())
-                        .rutaPedidoId(item.getRutaPedidoId())
-                        .build());
-            } catch (Exception e) {
-                if (e.getMessage() != null && e.getMessage().contains("No se puede cambiar el estado de una parada")) {
-                    // Si ya se cambió el estado desde PENDIENTE, lo tratamos como exitoso para idempotencia
-                    procesados.add(SincronizacionParadasResponse.ParadaProcesada.builder()
-                            .uuidOffline(item.getUuidOffline())
+                if (item.getUuidOffline() == null || item.getUuidOffline().isBlank()) {
+                    errores.add(SincronizacionParadasResponse.ParadaError.builder()
                             .rutaPedidoId(item.getRutaPedidoId())
+                            .error("uuidOffline es obligatorio")
                             .build());
-                } else {
+                    continue;
+                }
+                if (item.getRutaPedidoId() == null) {
                     errores.add(SincronizacionParadasResponse.ParadaError.builder()
                             .uuidOffline(item.getUuidOffline())
-                            .error(e.getMessage())
+                            .error("rutaPedidoId es obligatorio")
                             .build());
+                    continue;
                 }
+                if (!uuidsVistosEnBatch.add(item.getUuidOffline())) {
+                    log.debug("Parada con uuidOffline={} duplicada en el batch, contando como procesado",
+                            item.getUuidOffline());
+                    procesados.add(procesada(item));
+                    continue;
+                }
+                if (!paradasVistasEnBatch.add(item.getRutaPedidoId())) {
+                    log.debug("Parada con rutaPedidoId={} duplicada en el batch (UUID distinto), contando como procesado",
+                            item.getRutaPedidoId());
+                    procesados.add(procesada(item));
+                    continue;
+                }
+                procesarParadaIndividual(item, emailAutenticado, procesados, errores);
+            } catch (Exception ex) {
+                log.error("Error inesperado procesando parada uuidOffline={}",
+                        item.getUuidOffline(), ex);
+                errores.add(SincronizacionParadasResponse.ParadaError.builder()
+                        .uuidOffline(item.getUuidOffline())
+                        .rutaPedidoId(item.getRutaPedidoId())
+                        .error("Error inesperado al procesar la parada")
+                        .build());
             }
         }
 
         return SincronizacionParadasResponse.builder()
                 .procesados(procesados)
                 .errores(errores)
+                .build();
+    }
+
+    private void procesarParadaIndividual(SincronizacionParadaItemRequest item,
+                                          String emailAutenticado,
+                                          List<SincronizacionParadasResponse.ParadaProcesada> procesados,
+                                          List<SincronizacionParadasResponse.ParadaError> errores) {
+        try {
+            paradaProcessor.procesarParada(item, emailAutenticado);
+            procesados.add(procesada(item));
+        } catch (ResourceNotFoundException ex) {
+            errores.add(SincronizacionParadasResponse.ParadaError.builder()
+                    .uuidOffline(item.getUuidOffline())
+                    .rutaPedidoId(item.getRutaPedidoId())
+                    .error(ex.getMessage())
+                    .build());
+        } catch (BusinessException ex) {
+            if (esEstadoNoCambiable(ex)) {
+                log.debug("Parada {} ya estaba en estado distinto a PENDIENTE, contando como procesado",
+                        item.getRutaPedidoId());
+                procesados.add(procesada(item));
+            } else {
+                errores.add(SincronizacionParadasResponse.ParadaError.builder()
+                        .uuidOffline(item.getUuidOffline())
+                        .rutaPedidoId(item.getRutaPedidoId())
+                        .error(ex.getMessage())
+                        .build());
+            }
+        }
+    }
+
+    private boolean esEstadoNoCambiable(BusinessException ex) {
+        if (ex.getMessage() == null) {
+            return false;
+        }
+        String prefijo = Constantes.MSG_ESTADO_NO_CAMBIABLE.split("%s")[0];
+        return ex.getMessage().startsWith(prefijo.trim());
+    }
+
+    private SincronizacionParadasResponse.ParadaProcesada procesada(SincronizacionParadaItemRequest item) {
+        return SincronizacionParadasResponse.ParadaProcesada.builder()
+                .uuidOffline(item.getUuidOffline())
+                .rutaPedidoId(item.getRutaPedidoId())
+                .build();
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.NEVER)
+    public SincronizacionRutasResponse procesarRutasOffline(SincronizacionRutasRequest request, String emailAutenticado) {
+        log.info("Iniciando sincronizacion offline de rutas. Recibidos: {}", request.getCambios().size());
+
+        List<SincronizacionRutasResponse.RutaProcesada> procesados = new ArrayList<>();
+        List<SincronizacionRutasResponse.RutaError> errores = new ArrayList<>();
+
+        Set<String> uuidsVistosEnBatch = new HashSet<>();
+        Set<Long> rutasVistasEnBatch = new HashSet<>();
+
+        for (SincronizacionRutaItemRequest item : request.getCambios()) {
+            try {
+                if (item.getUuidOffline() == null || item.getUuidOffline().isBlank()) {
+                    errores.add(SincronizacionRutasResponse.RutaError.builder()
+                            .rutaId(item.getRutaId())
+                            .error("uuidOffline es obligatorio")
+                            .build());
+                    continue;
+                }
+                if (item.getRutaId() == null) {
+                    errores.add(SincronizacionRutasResponse.RutaError.builder()
+                            .uuidOffline(item.getUuidOffline())
+                            .error("rutaId es obligatorio")
+                            .build());
+                    continue;
+                }
+                if (!uuidsVistosEnBatch.add(item.getUuidOffline())) {
+                    log.debug("Cambio de ruta con uuidOffline={} duplicado en el batch, contando como procesado",
+                            item.getUuidOffline());
+                    procesados.add(procesadaRuta(item));
+                    continue;
+                }
+                if (!rutasVistasEnBatch.add(item.getRutaId())) {
+                    log.debug("Cambio de ruta con rutaId={} duplicado en el batch (UUID distinto), contando como procesado",
+                            item.getRutaId());
+                    procesados.add(procesadaRuta(item));
+                    continue;
+                }
+                rutaProcessor.procesarRuta(item, emailAutenticado);
+                procesados.add(procesadaRuta(item));
+            } catch (ResourceNotFoundException ex) {
+                errores.add(SincronizacionRutasResponse.RutaError.builder()
+                        .uuidOffline(item.getUuidOffline())
+                        .rutaId(item.getRutaId())
+                        .error(ex.getMessage())
+                        .build());
+            } catch (BusinessException ex) {
+                errores.add(SincronizacionRutasResponse.RutaError.builder()
+                        .uuidOffline(item.getUuidOffline())
+                        .rutaId(item.getRutaId())
+                        .error(ex.getMessage())
+                        .build());
+            } catch (Exception ex) {
+                log.error("Error inesperado procesando cambio de ruta uuidOffline={}",
+                        item.getUuidOffline(), ex);
+                errores.add(SincronizacionRutasResponse.RutaError.builder()
+                        .uuidOffline(item.getUuidOffline())
+                        .rutaId(item.getRutaId())
+                        .error("Error inesperado al procesar el cambio de ruta")
+                        .build());
+            }
+        }
+
+        return SincronizacionRutasResponse.builder()
+                .procesados(procesados)
+                .errores(errores)
+                .build();
+    }
+
+    private SincronizacionRutasResponse.RutaProcesada procesadaRuta(SincronizacionRutaItemRequest item) {
+        return SincronizacionRutasResponse.RutaProcesada.builder()
+                .uuidOffline(item.getUuidOffline())
+                .rutaId(item.getRutaId())
                 .build();
     }
 }

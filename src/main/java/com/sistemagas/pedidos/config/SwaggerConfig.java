@@ -26,8 +26,8 @@ public class SwaggerConfig {
                                 "- Gestion de clientes (incluye foto de fachada como evidencia)\n" +
                                 "- Creacion y consulta de pedidos (online y offline)\n" +
                                 "- Gestion de garrafas (catalogo, precio y reposicion de stock)\n" +
-                                "- Sincronizacion offline de pedidos e imagenes pendientes\n" +
-                                "- Planificacion y seguimiento de rutas de reparto\n\n" +
+                                "- Sincronizacion offline de pedidos, clientes, paradas y cambios de estado de rutas\n" +
+                                "- Planificacion, seguimiento y reporte de rutas de reparto\n\n" +
                                 "**Autenticacion:** Usar `POST /api/auth/login` para obtener un token JWT, " +
                                 "luego hacer clic en 'Authorize' y pegar el token.\n\n" +
                                 "**Auditoria automatica:** todas las entidades registran automaticamente el usuario " +
@@ -38,7 +38,11 @@ public class SwaggerConfig {
                                 "para identificar el tipo sin parsear el mensaje. Ejemplos: " +
                                 "`USUARIO_NO_ENCONTRADO` (404), `NO_AUTHENTICATED` (401), " +
                                 "`GARRAFA_TIPO_OBLIGATORIO` (400), `GARRAFA_CAPACIDAD_INCONSISTENTE` (400), " +
-                                "`PEDIDO_DUPLICADO` (400). Ver README para lista completa.")
+                                "`PEDIDO_DUPLICADO` (400), `TRANSICION_ESTADO_RUTA_INVALIDA` (400). " +
+                                "Ver README para lista completa.\n\n" +
+                                "**Sincronizacion offline:** ver seccion `Sincronizacion` en Swagger UI para " +
+                                "los endpoints batch (`/api/sincronizar`, `/api/sincronizar/clientes`, " +
+                                "`/api/sincronizar/paradas`, `/api/sincronizar/rutas`).")
                         .version("0.0.1")
                         .contact(new Contact()
                                 .name("Equipo de Desarrollo")

@@ -3,9 +3,17 @@ package com.sistemagas.pedidos.service.impl;
 import com.sistemagas.pedidos.dto.request.PedidoDetalleRequest;
 import com.sistemagas.pedidos.dto.request.PedidoRequest;
 import com.sistemagas.pedidos.dto.request.SincronizacionClienteRequest;
+import com.sistemagas.pedidos.dto.request.SincronizacionParadaItemRequest;
+import com.sistemagas.pedidos.dto.request.SincronizacionParadasRequest;
+import com.sistemagas.pedidos.dto.request.SincronizacionRutaItemRequest;
+import com.sistemagas.pedidos.dto.request.SincronizacionRutasRequest;
 import com.sistemagas.pedidos.dto.request.SincronizacionRequest;
 import com.sistemagas.pedidos.dto.response.SincronizacionClienteResponse;
+import com.sistemagas.pedidos.dto.response.SincronizacionParadasResponse;
+import com.sistemagas.pedidos.dto.response.SincronizacionRutasResponse;
 import com.sistemagas.pedidos.dto.response.SincronizacionResponse;
+import com.sistemagas.pedidos.enums.EstadoEntrega;
+import com.sistemagas.pedidos.enums.EstadoRuta;
 import com.sistemagas.pedidos.enums.TipoGarrafa;
 import com.sistemagas.pedidos.exception.BusinessException;
 import com.sistemagas.pedidos.exception.ResourceNotFoundException;
@@ -36,6 +44,8 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.http.HttpStatus;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -61,6 +71,12 @@ class SincronizacionServiceImplTest {
 
     @Mock
     private com.sistemagas.pedidos.service.ClienteService clienteService;
+
+    @Mock
+    private SincronizacionParadaProcessor paradaProcessor;
+
+    @Mock
+    private SincronizacionRutaProcessor rutaProcessor;
 
 
 
@@ -96,7 +112,7 @@ class SincronizacionServiceImplTest {
 
         SincronizacionClienteProcessor clienteProcessor = new SincronizacionClienteProcessor(clienteService);
 
-        service = new SincronizacionServiceImpl(pedidoRepository, clienteRepository, pedidoProcessor, clienteProcessor, null);
+        service = new SincronizacionServiceImpl(pedidoRepository, clienteRepository, pedidoProcessor, clienteProcessor, paradaProcessor, rutaProcessor);
     }
 
     @Test
@@ -433,6 +449,216 @@ class SincronizacionServiceImplTest {
                                 PedidoDetalleRequest.builder().garrafaId(1L).cantidad(5).build())))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("Stock insuficiente");
+    }
+
+    @Test
+    @DisplayName("Paradas: mismo uuidOffline en batch → segunda va a procesados sin rebotar")
+    void paradas_mismoUuidEnBatch_segundaVaaProcesadosSinRebotar() {
+        SincronizacionParadaItemRequest a = paradaItem("evt-1", 10L, EstadoEntrega.ENTREGADO);
+        SincronizacionParadaItemRequest b = paradaItem("evt-1", 10L, EstadoEntrega.ENTREGADO);
+        SincronizacionParadasRequest req = SincronizacionParadasRequest.builder()
+                .paradas(List.of(a, b))
+                .build();
+
+        SincronizacionParadasResponse resp = service.procesarParadasOffline(req, "test@test.com");
+
+        verify(paradaProcessor, times(1)).procesarParada(any(), any());
+        assertThat(resp.getProcesados()).hasSize(2);
+        assertThat(resp.getErrores()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Paradas: misma rutaPedidoId con UUID distinto en batch → segunda va a procesados")
+    void paradas_mismaParadaDistintoUuidEnBatch_segundaVaaProcesados() {
+        SincronizacionParadaItemRequest a = paradaItem("evt-1", 10L, EstadoEntrega.ENTREGADO);
+        SincronizacionParadaItemRequest b = paradaItem("evt-2", 10L, EstadoEntrega.ENTREGADO);
+        SincronizacionParadasRequest req = SincronizacionParadasRequest.builder()
+                .paradas(List.of(a, b))
+                .build();
+
+        SincronizacionParadasResponse resp = service.procesarParadasOffline(req, "test@test.com");
+
+        verify(paradaProcessor, times(1)).procesarParada(any(), any());
+        assertThat(resp.getProcesados()).hasSize(2);
+        assertThat(resp.getErrores()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Paradas: parada ya entregada → se cuenta como procesado (idempotencia cross-batch)")
+    void paradas_paradaYaEntregada_llegaOnline_seCuentaComoProcesado() {
+        SincronizacionParadaItemRequest item = paradaItem("evt-1", 10L, EstadoEntrega.ENTREGADO);
+        SincronizacionParadasRequest req = SincronizacionParadasRequest.builder()
+                .paradas(List.of(item))
+                .build();
+
+        doThrow(new BusinessException(
+                        String.format(Constantes.MSG_ESTADO_NO_CAMBIABLE, EstadoEntrega.ENTREGADO)))
+                .when(paradaProcessor).procesarParada(any(), any());
+
+        SincronizacionParadasResponse resp = service.procesarParadasOffline(req, "test@test.com");
+
+        assertThat(resp.getProcesados()).hasSize(1);
+        assertThat(resp.getProcesados().get(0).getUuidOffline()).isEqualTo("evt-1");
+        assertThat(resp.getErrores()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Paradas: rutaPedidoId no existe → va a errores con mensaje claro")
+    void paradas_rutaPedidoNoExiste_vaErroresConMensajeClaro() {
+        SincronizacionParadaItemRequest item = paradaItem("evt-1", 999L, EstadoEntrega.ENTREGADO);
+        SincronizacionParadasRequest req = SincronizacionParadasRequest.builder()
+                .paradas(List.of(item))
+                .build();
+
+        doThrow(new ResourceNotFoundException("Parada no encontrada"))
+                .when(paradaProcessor).procesarParada(any(), any());
+
+        SincronizacionParadasResponse resp = service.procesarParadasOffline(req, "test@test.com");
+
+        assertThat(resp.getProcesados()).isEmpty();
+        assertThat(resp.getErrores()).hasSize(1);
+        assertThat(resp.getErrores().get(0).getUuidOffline()).isEqualTo("evt-1");
+        assertThat(resp.getErrores().get(0).getRutaPedidoId()).isEqualTo(999L);
+        assertThat(resp.getErrores().get(0).getError()).contains("Parada no encontrada");
+    }
+
+    @Test
+    @DisplayName("Paradas: uuidOffline vacío → va a errores sin invocar processor")
+    void paradas_uuidVacio_vaErrores() {
+        SincronizacionParadaItemRequest item = paradaItem("", 10L, EstadoEntrega.ENTREGADO);
+        SincronizacionParadasRequest req = SincronizacionParadasRequest.builder()
+                .paradas(List.of(item))
+                .build();
+
+        SincronizacionParadasResponse resp = service.procesarParadasOffline(req, "test@test.com");
+
+        assertThat(resp.getProcesados()).isEmpty();
+        assertThat(resp.getErrores()).hasSize(1);
+        assertThat(resp.getErrores().get(0).getError()).contains("uuidOffline es obligatorio");
+        verifyNoInteractions(paradaProcessor);
+    }
+
+    private SincronizacionParadaItemRequest paradaItem(String uuid, Long rutaPedidoId, EstadoEntrega estado) {
+        SincronizacionParadaItemRequest item = new SincronizacionParadaItemRequest();
+        item.setUuidOffline(uuid);
+        item.setRutaPedidoId(rutaPedidoId);
+        item.setNuevoEstado(estado);
+        return item;
+    }
+
+    @Test
+    @DisplayName("Rutas: mismo uuidOffline en batch → segunda va a procesados sin rebotar")
+    void rutas_mismoUuidEnBatch_segundaVaaProcesadosSinRebotar() {
+        SincronizacionRutaItemRequest a = rutaItem("ruta-evt-1", 5L, EstadoRuta.EN_CURSO);
+        SincronizacionRutaItemRequest b = rutaItem("ruta-evt-1", 5L, EstadoRuta.EN_CURSO);
+        SincronizacionRutasRequest req = SincronizacionRutasRequest.builder()
+                .cambios(List.of(a, b))
+                .build();
+
+        SincronizacionRutasResponse resp = service.procesarRutasOffline(req, "test@test.com");
+
+        verify(rutaProcessor, times(1)).procesarRuta(any(), any());
+        assertThat(resp.getProcesados()).hasSize(2);
+        assertThat(resp.getErrores()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Rutas: misma ruta con UUID distinto en batch → segunda va a procesados")
+    void rutas_mismaRutaDistintoUuidEnBatch_segundaVaaProcesados() {
+        SincronizacionRutaItemRequest a = rutaItem("ruta-evt-1", 5L, EstadoRuta.EN_CURSO);
+        SincronizacionRutaItemRequest b = rutaItem("ruta-evt-2", 5L, EstadoRuta.EN_CURSO);
+        SincronizacionRutasRequest req = SincronizacionRutasRequest.builder()
+                .cambios(List.of(a, b))
+                .build();
+
+        SincronizacionRutasResponse resp = service.procesarRutasOffline(req, "test@test.com");
+
+        verify(rutaProcessor, times(1)).procesarRuta(any(), any());
+        assertThat(resp.getProcesados()).hasSize(2);
+        assertThat(resp.getErrores()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Rutas: cambio exitoso → va a procesados")
+    void rutas_exitoso_vaProcesados() {
+        SincronizacionRutaItemRequest item = rutaItem("ruta-evt-1", 5L, EstadoRuta.EN_CURSO);
+        SincronizacionRutasRequest req = SincronizacionRutasRequest.builder()
+                .cambios(List.of(item))
+                .build();
+
+        SincronizacionRutasResponse resp = service.procesarRutasOffline(req, "test@test.com");
+
+        verify(rutaProcessor, times(1)).procesarRuta(any(), any());
+        assertThat(resp.getProcesados()).hasSize(1);
+        assertThat(resp.getProcesados().get(0).getUuidOffline()).isEqualTo("ruta-evt-1");
+        assertThat(resp.getProcesados().get(0).getRutaId()).isEqualTo(5L);
+        assertThat(resp.getErrores()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Rutas: ruta no existe → va a errores con mensaje claro")
+    void rutas_rutaNoExiste_vaErroresConMensajeClaro() {
+        SincronizacionRutaItemRequest item = rutaItem("ruta-evt-1", 999L, EstadoRuta.EN_CURSO);
+        SincronizacionRutasRequest req = SincronizacionRutasRequest.builder()
+                .cambios(List.of(item))
+                .build();
+
+        doThrow(new ResourceNotFoundException("Ruta no encontrada"))
+                .when(rutaProcessor).procesarRuta(any(), any());
+
+        SincronizacionRutasResponse resp = service.procesarRutasOffline(req, "test@test.com");
+
+        assertThat(resp.getProcesados()).isEmpty();
+        assertThat(resp.getErrores()).hasSize(1);
+        assertThat(resp.getErrores().get(0).getUuidOffline()).isEqualTo("ruta-evt-1");
+        assertThat(resp.getErrores().get(0).getRutaId()).isEqualTo(999L);
+        assertThat(resp.getErrores().get(0).getError()).contains("Ruta no encontrada");
+    }
+
+    @Test
+    @DisplayName("Rutas: transición inválida → va a errores con mensaje claro")
+    void rutas_transicionInvalida_vaErrores() {
+        SincronizacionRutaItemRequest item = rutaItem("ruta-evt-1", 5L, EstadoRuta.COMPLETADA);
+        SincronizacionRutasRequest req = SincronizacionRutasRequest.builder()
+                .cambios(List.of(item))
+                .build();
+
+        doThrow(new BusinessException(
+                        String.format(Constantes.MSG_TRANSICION_RUTA_INVALIDA,
+                                EstadoRuta.COMPLETADA, EstadoRuta.COMPLETADA),
+                        HttpStatus.BAD_REQUEST,
+                        "TRANSICION_ESTADO_RUTA_INVALIDA"))
+                .when(rutaProcessor).procesarRuta(any(), any());
+
+        SincronizacionRutasResponse resp = service.procesarRutasOffline(req, "test@test.com");
+
+        assertThat(resp.getProcesados()).isEmpty();
+        assertThat(resp.getErrores()).hasSize(1);
+        assertThat(resp.getErrores().get(0).getError()).contains("No se puede cambiar la ruta de COMPLETADA a COMPLETADA");
+    }
+
+    @Test
+    @DisplayName("Rutas: uuidOffline vacío → va a errores sin invocar processor")
+    void rutas_uuidVacio_vaErrores() {
+        SincronizacionRutaItemRequest item = rutaItem("", 5L, EstadoRuta.EN_CURSO);
+        SincronizacionRutasRequest req = SincronizacionRutasRequest.builder()
+                .cambios(List.of(item))
+                .build();
+
+        SincronizacionRutasResponse resp = service.procesarRutasOffline(req, "test@test.com");
+
+        assertThat(resp.getProcesados()).isEmpty();
+        assertThat(resp.getErrores()).hasSize(1);
+        assertThat(resp.getErrores().get(0).getError()).contains("uuidOffline es obligatorio");
+        verifyNoInteractions(rutaProcessor);
+    }
+
+    private SincronizacionRutaItemRequest rutaItem(String uuid, Long rutaId, EstadoRuta estado) {
+        SincronizacionRutaItemRequest item = new SincronizacionRutaItemRequest();
+        item.setUuidOffline(uuid);
+        item.setRutaId(rutaId);
+        item.setNuevoEstado(estado);
+        return item;
     }
 
     private Garrafa makeGarrafa(Long id, TipoGarrafa tipo, BigDecimal precio, Integer stock) {

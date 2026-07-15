@@ -5,6 +5,7 @@ import com.sistemagas.pedidos.dto.request.RutaPlanificarRequest;
 import com.sistemagas.pedidos.dto.response.ClienteResponse;
 import com.sistemagas.pedidos.dto.response.DeliveryReadOnlyResponse;
 import com.sistemagas.pedidos.dto.response.RutaPedidoResponse;
+import com.sistemagas.pedidos.dto.response.RutaReprogramadaResponse;
 import com.sistemagas.pedidos.dto.response.RutaResponse;
 import com.sistemagas.pedidos.enums.EstadoRuta;
 import com.sistemagas.pedidos.exception.BusinessException;
@@ -21,12 +22,18 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.List;
 import java.util.stream.Collectors;
 
 @RestController
@@ -108,6 +115,30 @@ public class RutaController {
         Usuario autenticado = authenticationHelper.getUsuarioAutenticado();
         DeliveryReadOnlyResponse response = rutaService.obtenerPedidoDeParada(rutaPedidoId, autenticado);
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/reprogramadas")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    @Operation(summary = "Reporte de rutas REPROGRAMADAS con detalle de fallos",
+            description = "Lista las rutas en estado REPROGRAMADA con el detalle de cada parada fallida "
+                    + "(motivo, cliente, pedido, cantidades). Útil para análisis operativo y "
+                    + "planificación de reintentos.")
+    public ResponseEntity<List<RutaReprogramadaResponse>> listarReprogramadas(
+            @Parameter(description = "Fecha minima de reparto (inclusive). Default: hace 30 dias.",
+                    example = "2026-06-15")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
+            @Parameter(description = "Fecha maxima de reparto (inclusive). Default: hoy.",
+                    example = "2026-07-15")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta,
+            @Parameter(description = "Filtro opcional por repartidor dueño de la ruta", example = "5")
+            @RequestParam(required = false) Long repartidorId,
+            @Parameter(description = "Filtro opcional por updatedAt >= este instante (ISO-8601)",
+                    example = "2026-07-01T00:00:00Z")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant minUpdatedAt,
+            @Parameter(description = "Cantidad maxima de rutas a retornar (1-1000)", example = "100")
+            @RequestParam(required = false, defaultValue = "100") @Min(1) @Max(1000) Integer limit) {
+        return ResponseEntity.ok(rutaService.listarReprogramadas(
+                fechaDesde, fechaHasta, repartidorId, minUpdatedAt, limit));
     }
 
     private RutaResponse mapToResponse(Ruta ruta) {

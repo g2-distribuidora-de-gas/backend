@@ -2,26 +2,27 @@ package com.sistemagas.pedidos.dto.response;
 
 import lombok.Builder;
 import lombok.Data;
+
 import java.util.List;
 
 @Data
 @Builder
-public class SincronizacionParadasResponse {
-    private List<ParadaProcesada> procesados;
-    private List<ParadaError> errores;
+public class SincronizacionRutasResponse {
+    private List<RutaProcesada> procesados;
+    private List<RutaError> errores;
 
     @Data
     @Builder
-    public static class ParadaProcesada {
+    public static class RutaProcesada {
         private String uuidOffline;
-        private Long rutaPedidoId;
+        private Long rutaId;
     }
 
     @Data
     @Builder
-    public static class ParadaError {
+    public static class RutaError {
         private String uuidOffline;
-        private Long rutaPedidoId;
+        private Long rutaId;
         private String error;
     }
 }
