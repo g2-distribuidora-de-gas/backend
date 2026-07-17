@@ -49,4 +49,12 @@ public interface RutaRepository extends JpaRepository<Ruta, Long> {
     @EntityGraph(attributePaths = {"paradas", "paradas.pedido", "paradas.pedido.cliente",
             "paradas.pedido.detalles", "repartidor"})
     List<Ruta> findByEstadoAndUpdatedAtGreaterThan(EstadoRuta estado, Instant minUpdatedAt, Pageable pageable);
+
+    // Panel admin: listar todas las rutas en un rango de fechas (cualquier estado).
+    @EntityGraph(attributePaths = {"paradas", "paradas.pedido", "paradas.pedido.cliente", "repartidor"})
+    List<Ruta> findByFechaRepartoBetween(LocalDate desde, LocalDate hasta, Pageable pageable);
+
+    // Panel admin: idem filtrando por repartidor.
+    @EntityGraph(attributePaths = {"paradas", "paradas.pedido", "paradas.pedido.cliente", "repartidor"})
+    List<Ruta> findByRepartidorIdAndFechaRepartoBetween(Long repartidorId, LocalDate desde, LocalDate hasta, Pageable pageable);
 }

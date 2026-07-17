@@ -58,4 +58,16 @@ public interface RutaService {
      */
     List<RutaReprogramadaResponse> listarReprogramadas(LocalDate fechaDesde, LocalDate fechaHasta,
                                                        Long repartidorId, Instant minUpdatedAt, Integer limit);
+
+    /**
+     * Lista todas las rutas (cualquier estado) en un rango de fechas, ordenadas por
+     * updatedAt descendente y luego id descendente. Pensado para el panel del admin.
+     *
+     * @param fechaDesde    limite inferior del rango de fechaReparto (inclusive). Si es null, default = hoy - 30 dias.
+     * @param fechaHasta    limite superior del rango de fechaReparto (inclusive). Si es null, default = hoy.
+     * @param repartidorId  filtro opcional por repartidor dueño.
+     * @param limit         maximo de rutas a retornar (1-1000). Si es null, default = 100.
+     */
+    List<Ruta> listarTodas(LocalDate fechaDesde, LocalDate fechaHasta,
+                           Long repartidorId, Integer limit);
 }

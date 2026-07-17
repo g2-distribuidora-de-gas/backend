@@ -670,4 +670,58 @@ class RutaServiceImplTest {
 
         assertThat(item.getRepartidor().getId()).isEqualTo(10L);
     }
+
+    @Test
+    @DisplayName("listarTodas: sin filtros delega al repo general con defaults (hoy-30, hoy, limit 100)")
+    void listarTodas_sinFiltros_delegaAlRepoGeneralConDefaults() {
+        LocalDate desdeEsperado = LocalDate.now().minusDays(30);
+        LocalDate hastaEsperado = LocalDate.now();
+
+        when(rutaRepository.findByFechaRepartoBetween(eq(desdeEsperado), eq(hastaEsperado), any()))
+                .thenReturn(List.of());
+
+        List<Ruta> resp = service.listarTodas(null, null, null, null);
+
+        assertThat(resp).isEmpty();
+        verify(rutaRepository).findByFechaRepartoBetween(eq(desdeEsperado), eq(hastaEsperado), any());
+        verify(rutaRepository, never())
+                .findByRepartidorIdAndFechaRepartoBetween(anyLong(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("listarTodas: con repartidorId delega al repo especifico de repartidor")
+    void listarTodas_conRepartidorId_delegaAlRepoEspecifico() {
+        LocalDate desde = LocalDate.of(2026, 7, 1);
+        LocalDate hasta = LocalDate.of(2026, 7, 31);
+
+        Ruta r1 = Ruta.builder().id(1L).repartidor(repartidorDuenio)
+                .estado(com.sistemagas.pedidos.enums.EstadoRuta.PLANIFICADA).build();
+        when(rutaRepository.findByRepartidorIdAndFechaRepartoBetween(
+                eq(10L), eq(desde), eq(hasta), any()))
+                .thenReturn(List.of(r1));
+
+        List<Ruta> resp = service.listarTodas(desde, hasta, 10L, 50);
+
+        assertThat(resp).hasSize(1);
+        assertThat(resp.get(0).getId()).isEqualTo(1L);
+        verify(rutaRepository).findByRepartidorIdAndFechaRepartoBetween(
+                eq(10L), eq(desde), eq(hasta), any());
+        verify(rutaRepository, never())
+                .findByFechaRepartoBetween(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("listarTodas: limit null cae a 100 y limit <= 0 tambien cae a 100")
+    void listarTodas_limitInvalido_caeADefault100() {
+        when(rutaRepository.findByFechaRepartoBetween(any(), any(), any()))
+                .thenReturn(List.of());
+
+        service.listarTodas(null, null, null, null);
+        service.listarTodas(null, null, null, 0);
+        service.listarTodas(null, null, null, -5);
+
+        verify(rutaRepository, times(3))
+                .findByFechaRepartoBetween(any(), any(), argThat(p ->
+                        p != null && p.getPageSize() == 100));
+    }
 }

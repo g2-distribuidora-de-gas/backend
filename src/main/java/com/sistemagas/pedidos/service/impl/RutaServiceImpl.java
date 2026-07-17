@@ -409,6 +409,23 @@ public class RutaServiceImpl implements RutaService {
                 .toList();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<Ruta> listarTodas(LocalDate fechaDesde, LocalDate fechaHasta,
+                                  Long repartidorId, Integer limit) {
+        LocalDate desde = (fechaDesde != null) ? fechaDesde : LocalDate.now().minusDays(30);
+        LocalDate hasta = (fechaHasta != null) ? fechaHasta : LocalDate.now();
+        int pageLimit = (limit != null && limit > 0) ? limit : 100;
+        Pageable pageable = PageRequest.of(0, pageLimit,
+                Sort.by("updatedAt").descending().and(Sort.by("id").descending()));
+
+        if (repartidorId != null) {
+            return rutaRepository.findByRepartidorIdAndFechaRepartoBetween(
+                    repartidorId, desde, hasta, pageable);
+        }
+        return rutaRepository.findByFechaRepartoBetween(desde, hasta, pageable);
+    }
+
     private RutaReprogramadaResponse mapRutaReprogramada(Ruta ruta) {
         List<RutaPedido> paradas = ruta.getParadas() != null ? ruta.getParadas() : List.of();
 

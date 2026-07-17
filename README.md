@@ -252,11 +252,37 @@ src/main/java/com/sistemagas/pedidos/
 | Metodo | Endpoint | Descripcion | Roles |
 |---|---|---|---|
 | `POST` | `/api/rutas/planificar` | Planificar una ruta de reparto | ADMIN, SUPER_ADMIN |
+| `GET` | `/api/rutas` | Listar todas las rutas de reparto (panel admin) | ADMIN, SUPER_ADMIN |
 | `GET` | `/api/rutas/mis-rutas/{repartidorId}` | Obtener la ruta activa de un repartidor | REPARTIDOR, ADMIN, SUPER_ADMIN |
 | `PATCH` | `/api/rutas/{rutaId}/estado` | Cambiar el estado de una ruta (valida transicion) | REPARTIDOR, ADMIN, SUPER_ADMIN |
 | `PATCH` | `/api/rutas/paradas/{rutaPedidoId}` | Actualizar estado de una parada (online) | REPARTIDOR, ADMIN, SUPER_ADMIN |
 | `GET` | `/api/rutas/paradas/{rutaPedidoId}/pedido` | Detalle liviano del pedido de una parada (app del repartidor) | REPARTIDOR, ADMIN, SUPER_ADMIN |
 | `GET` | `/api/rutas/reprogramadas` | Reporte de rutas REPROGRAMADAS con detalle de paradas fallidas | ADMIN, SUPER_ADMIN |
+
+#### `GET /api/rutas` — Listar todas las rutas (panel admin)
+
+Devuelve las rutas de reparto (cualquier estado) en un rango de fechas, ordenadas por
+`updatedAt DESC, id DESC`. Pensado para alimentar el panel del admin.
+
+**Query params (todos opcionales):**
+
+| Param | Tipo | Default | Descripcion |
+|---|---|---|---|
+| `fechaDesde` | `LocalDate` (ISO `YYYY-MM-DD`) | `hoy − 30 dias` | Limite inferior del rango de `fechaReparto` (inclusive) |
+| `fechaHasta` | `LocalDate` (ISO `YYYY-MM-DD`) | `hoy` | Limite superior del rango de `fechaReparto` (inclusive) |
+| `repartidorId` | `Long` | `null` | Filtra solo las rutas del repartidor indicado |
+| `limit` | `Integer` (1‑1000) | `100` | Tope de rutas retornadas |
+
+**Ejemplos:**
+
+```
+GET /api/rutas
+GET /api/rutas?fechaDesde=2026-07-01&fechaHasta=2026-07-17&repartidorId=5&limit=50
+GET /api/rutas?fechaDesde=2020-01-01&fechaHasta=2026-12-31&limit=1000   # todo el historial
+```
+
+**Respuesta `200 OK`:** `List<RutaResponse>` (mismo DTO que `/planificar` y `/mis-rutas/{id}`).
+Si no hay resultados, devuelve `[]` (NO es 404).
 
 ## Auditoria automatica
 

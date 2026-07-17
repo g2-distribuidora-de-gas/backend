@@ -16,7 +16,45 @@
 | Obtener pedido | `GET /api/pedidos/{id}` o `GET /api/pedidos/uuid/{uuid}` | PREVENTISTA, ADMIN, SUPER_ADMIN |
 | **Subir imagen offline** | `POST /api/sincronizacion/clientes/imagenes?clienteId=X` (multipart) | PREVENTISTA, ADMIN, SUPER_ADMIN |
 | Sincronizar pedido offline | `POST /api/sincronizacion` (JSON) | PREVENTISTA, ADMIN, SUPER_ADMIN |
+| **Listar todas las rutas (panel admin)** | `GET /api/rutas?fechaDesde=YYYY-MM-DD&fechaHasta=YYYY-MM-DD&repartidorId=N&limit=N` | ADMIN, SUPER_ADMIN |
 | ~~Subir foto al pedido~~ | `POST /api/pedidos/{id}/foto` | **DEPRECADO**, migrar a endpoints de cliente |
+
+### Panel admin — listado de rutas de reparto
+
+```http
+GET /api/rutas?fechaDesde=2026-07-01&fechaHasta=2026-07-17&repartidorId=5&limit=50
+Authorization: Bearer <jwt-admin>
+```
+
+**Query params (todos opcionales):**
+
+- `fechaDesde` (LocalDate, default `hoy − 30 dias`)
+- `fechaHasta` (LocalDate, default `hoy`)
+- `repartidorId` (Long, default `null`)
+- `limit` (Integer 1‑1000, default `100`)
+
+Devuelve `200 OK` con `List<RutaResponse>` (mismo DTO que `/api/rutas/planificar` y
+`/api/rutas/mis-rutas/{id}`), ordenado por `updatedAt DESC, id DESC`. Si no hay
+resultados, devuelve `[]` (no es 404).
+
+**Para traer todo el historial sin paginar manualmente:**
+
+```
+GET /api/rutas?fechaDesde=2020-01-01&fechaHasta=2026-12-31&limit=1000
+```
+
+**Para mostrar en el panel:**
+
+```ts
+// Pseudo-codigo Angular
+listarRutas(filtros: { fechaDesde?: string; fechaHasta?: string; repartidorId?: number }) {
+  const params = new URLSearchParams();
+  if (filtros.fechaDesde)    params.set('fechaDesde', filtros.fechaDesde);
+  if (filtros.fechaHasta)    params.set('fechaHasta', filtros.fechaHasta);
+  if (filtros.repartidorId)  params.set('repartidorId', String(filtros.repartidorId));
+  return this.http.get<RutaResponse[]>(`/api/rutas?${params}`);
+}
+```
 
 ---
 

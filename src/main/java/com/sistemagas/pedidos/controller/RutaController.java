@@ -141,6 +141,38 @@ public class RutaController {
                 fechaDesde, fechaHasta, repartidorId, minUpdatedAt, limit));
     }
 
+    @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    @Operation(summary = "Listar todas las rutas de reparto (panel admin)",
+            description = "Retorna las rutas de reparto (cualquier estado) en un rango de fechas y, "
+                    + "opcionalmente, filtradas por repartidor. Pensado para alimentar el panel del admin. "
+                    + "Sin filtros aplica defaults: fechaDesde=hoy-30, fechaHasta=hoy, limit=100.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200",
+                    description = "Lista de rutas (puede estar vacia)",
+                    content = @Content(schema = @Schema(implementation = RutaResponse.class))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400",
+                    description = "Parametros invalidos (ej: limit fuera de 1-1000, formato de fecha mal)"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401",
+                    description = "Sin token / token invalido"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403",
+                    description = "El usuario autenticado no es ADMIN ni SUPER_ADMIN")
+    })
+    public ResponseEntity<List<RutaResponse>> listarTodas(
+            @Parameter(description = "Fecha minima de reparto (inclusive). Default: hace 30 dias.",
+                    example = "2026-06-15")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
+            @Parameter(description = "Fecha maxima de reparto (inclusive). Default: hoy.",
+                    example = "2026-07-15")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta,
+            @Parameter(description = "Filtro opcional por repartidor dueño de la ruta", example = "5")
+            @RequestParam(required = false) Long repartidorId,
+            @Parameter(description = "Cantidad maxima de rutas a retornar (1-1000)", example = "100")
+            @RequestParam(required = false, defaultValue = "100") @Min(1) @Max(1000) Integer limit) {
+        List<Ruta> rutas = rutaService.listarTodas(fechaDesde, fechaHasta, repartidorId, limit);
+        return ResponseEntity.ok(rutas.stream().map(this::mapToResponse).toList());
+    }
+
     private RutaResponse mapToResponse(Ruta ruta) {
         return RutaResponse.builder()
                 .id(ruta.getId())
