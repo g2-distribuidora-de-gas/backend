@@ -2,11 +2,13 @@ package com.sistemagas.pedidos.service.impl;
 
 import com.sistemagas.pedidos.dto.request.PedidoRequest;
 import com.sistemagas.pedidos.dto.response.SincronizacionResponse;
-import com.sistemagas.pedidos.model.GarrafaModel;
+import com.sistemagas.pedidos.model.TipoGarrafaStock;
 import com.sistemagas.pedidos.model.Cliente;
 import com.sistemagas.pedidos.repository.ClienteRepository;
 import com.sistemagas.pedidos.service.ClienteFotoService;
-import com.sistemagas.pedidos.util.GarrafaStockHelper;
+import com.sistemagas.pedidos.repository.TipoGarrafaStockRepository;
+import com.sistemagas.pedidos.exception.BusinessException;
+import com.sistemagas.pedidos.dto.request.PedidoDetalleRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -21,7 +23,7 @@ import java.util.Map;
 public class SincronizacionPedidoProcessor {
 
     private final ClienteRepository clienteRepository;
-    private final GarrafaStockHelper garrafaStockHelper;
+    private final TipoGarrafaStockRepository tipoGarrafaStockRepository;
     private final SincronizacionPedidoSaver pedidoSaver;
     private final ClienteFotoService clienteFotoService;
 
@@ -29,7 +31,12 @@ public class SincronizacionPedidoProcessor {
     public SincronizacionResponse.Procesado procesar(PedidoRequest request, String emailAutenticado) {
         Cliente cliente = resolverCliente(request);
 
-        Map<Long, GarrafaModel> garrafas = garrafaStockHelper.cargarYValidar(request.getDetalles());
+        java.util.Map<Long, TipoGarrafaStock> garrafas = new java.util.HashMap<>();
+        for (PedidoDetalleRequest det : request.getDetalles()) {
+            TipoGarrafaStock garrafa = tipoGarrafaStockRepository.findById(det.getTipoGarrafaId())
+                    .orElseThrow(() -> new BusinessException("Garrafa no encontrada id: " + det.getTipoGarrafaId()));
+            garrafas.put(garrafa.getId(), garrafa);
+        }
 
         Long pedidoId = pedidoSaver.guardar(request, cliente, garrafas, emailAutenticado);
 

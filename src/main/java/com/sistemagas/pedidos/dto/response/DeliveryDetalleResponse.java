@@ -17,11 +17,11 @@ public class DeliveryDetalleResponse {
     @Schema(description = "ID del detalle", example = "100")
     private Long id;
 
-    @Schema(description = "ID de la garrafa", example = "2")
-    private Long garrafaId;
+    @Schema(description = "ID del tipo de garrafa", example = "2")
+    private Long tipoGarrafaId;
 
-    @Schema(description = "Tipo de garrafa", example = "GARRAFA_10KG")
-    private TipoGarrafa garrafaTipo;
+    @Schema(description = "Tipo de garrafa (codigo)", example = "10KG")
+    private String garrafaTipo;
 
     @Schema(description = "Cantidad solicitada en el pedido", example = "2")
     private Integer cantidad;

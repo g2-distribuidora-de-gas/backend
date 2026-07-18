@@ -33,9 +33,9 @@ public class PedidoDetalle extends Auditable {
     @JoinColumn(name = "pedido_id", nullable = false)
     private Pedido pedido;
 
-    @NotNull(message = "El ID de garrafa es obligatorio")
-    @Column(name = "garrafa_id", nullable = false)
-    private Long garrafaId;
+    @NotNull(message = "El ID de tipo garrafa es obligatorio")
+    @Column(name = "tipo_garrafa_id", nullable = false)
+    private Long tipoGarrafaId;
 
     @NotNull(message = "La cantidad es obligatoria")
     @Min(value = 1, message = "La cantidad debe ser al menos 1")

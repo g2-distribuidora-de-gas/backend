@@ -10,7 +10,7 @@ import com.sistemagas.pedidos.exception.BusinessException;
 import com.sistemagas.pedidos.exception.ResourceNotFoundException;
 import com.sistemagas.pedidos.mapper.PedidoDetalleMapper;
 import com.sistemagas.pedidos.mapper.PedidoMapper;
-import com.sistemagas.pedidos.model.GarrafaModel;
+import com.sistemagas.pedidos.model.TipoGarrafaStock;
 import com.sistemagas.pedidos.model.Pedido;
 import com.sistemagas.pedidos.model.PedidoDetalle;
 import com.sistemagas.pedidos.model.Cliente;
@@ -18,11 +18,10 @@ import com.sistemagas.pedidos.model.Usuario;
 import com.sistemagas.pedidos.repository.ClienteRepository;
 import com.sistemagas.pedidos.repository.PedidoRepository;
 import com.sistemagas.pedidos.repository.UsuarioRepository;
-import com.sistemagas.pedidos.repository.port.GarrafaRepositoryPort;
+import com.sistemagas.pedidos.repository.TipoGarrafaStockRepository;
 import com.sistemagas.pedidos.service.PedidoService;
 import com.sistemagas.pedidos.service.SupabaseStorageService;
 import com.sistemagas.pedidos.util.Constantes;
-import com.sistemagas.pedidos.util.GarrafaStockHelper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessResourceFailureException;
@@ -51,12 +50,11 @@ import java.time.Instant;
 public class PedidoServiceImpl implements PedidoService {
 
     private final PedidoRepository pedidoRepository;
-    private final GarrafaRepositoryPort garrafaRepositoryPort;
+    private final TipoGarrafaStockRepository tipoGarrafaStockRepository;
     private final ClienteRepository clienteRepository;
     private final UsuarioRepository usuarioRepository;
     private final PedidoMapper pedidoMapper;
     private final PedidoDetalleMapper pedidoDetalleMapper;
-    private final GarrafaStockHelper garrafaStockHelper;
     private final SupabaseStorageService supabaseStorageService;
     private final TransactionTemplate transactionTemplate;
 
@@ -85,25 +83,21 @@ public class PedidoServiceImpl implements PedidoService {
         pedido.setCreador(creador);
         pedido.setEstado(EstadoPedido.PENDIENTE);
 
-        Map<Long, GarrafaModel> garrafas = garrafaStockHelper.cargarYValidar(request.getDetalles());
-
+        java.util.Map<Long, TipoGarrafaStock> garrafas = new java.util.HashMap<>();
         for (PedidoDetalleRequest det : request.getDetalles()) {
-            GarrafaModel garrafa = garrafas.get(det.getGarrafaId());
-            if (garrafa == null) {
-                throw new ResourceNotFoundException(Constantes.MSG_GARRAFA_NO_ENCONTRADA + ": id=" + det.getGarrafaId());
-            }
+            TipoGarrafaStock garrafa = tipoGarrafaStockRepository.findById(det.getTipoGarrafaId())
+                    .orElseThrow(() -> new ResourceNotFoundException(Constantes.MSG_GARRAFA_NO_ENCONTRADA + ": id=" + det.getTipoGarrafaId()));
+            garrafas.put(garrafa.getId(), garrafa);
+            
             BigDecimal precioUnitario = garrafa.getPrecio();
 
             PedidoDetalle detalle = PedidoDetalle.builder()
-                    .garrafaId(garrafa.getId())
+                    .tipoGarrafaId(garrafa.getId())
                     .cantidad(det.getCantidad())
                     .precioUnitario(precioUnitario)
                     .build();
 
             pedido.agregarDetalle(detalle);
-
-            garrafaStockHelper.validarYDescontar(garrafa, det.getCantidad());
-            garrafaRepositoryPort.save(garrafa);
         }
 
         Pedido guardado = pedidoRepository.save(pedido);
@@ -240,15 +234,15 @@ public class PedidoServiceImpl implements PedidoService {
     private PedidoResponse buildResponseFor(Pedido pedido) {
         Cliente cliente = pedido.getCliente();
 
-        Map<Long, GarrafaModel> garrafas = new HashMap<>();
+        Map<Long, TipoGarrafaStock> garrafas = new HashMap<>();
         for (PedidoDetalle d : pedido.getDetalles()) {
-            garrafaRepositoryPort.findById(d.getGarrafaId()).ifPresent(g -> garrafas.put(g.getId(), g));
+            tipoGarrafaStockRepository.findById(d.getTipoGarrafaId()).ifPresent(g -> garrafas.put(g.getId(), g));
         }
 
         return buildResponse(pedido, cliente, garrafas);
     }
 
-    private PedidoResponse buildResponse(Pedido pedido, Cliente cliente, Map<Long, GarrafaModel> garrafas) {
+    private PedidoResponse buildResponse(Pedido pedido, Cliente cliente, Map<Long, TipoGarrafaStock> garrafas) {
         PedidoResponse response = pedidoMapper.toResponse(pedido);
 
         if (cliente != null && cliente.getFotoEvidenciaPath() != null) {
@@ -264,7 +258,7 @@ public class PedidoServiceImpl implements PedidoService {
         List<PedidoDetalleResponse> detalles = new ArrayList<>();
         for (PedidoDetalle d : pedido.getDetalles()) {
             PedidoDetalleResponse detResp = pedidoDetalleMapper.toResponse(d);
-            pedidoDetalleMapper.applyGarrafaTipo(detResp, garrafas.get(d.getGarrafaId()));
+            pedidoDetalleMapper.applyGarrafaTipo(detResp, garrafas.get(d.getTipoGarrafaId()));
             detalles.add(detResp);
         }
         response.setDetalles(detalles);

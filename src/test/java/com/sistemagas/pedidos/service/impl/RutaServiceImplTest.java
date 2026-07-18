@@ -9,9 +9,9 @@ import com.sistemagas.pedidos.enums.RolUsuario;
 import com.sistemagas.pedidos.exception.BusinessException;
 import com.sistemagas.pedidos.exception.ResourceNotFoundException;
 import com.sistemagas.pedidos.model.Cliente;
-import com.sistemagas.pedidos.model.Garrafa;
-import com.sistemagas.pedidos.model.GarrafaModel;
+import com.sistemagas.pedidos.model.Deposito;
 import com.sistemagas.pedidos.model.Pedido;
+import com.sistemagas.pedidos.model.TipoGarrafaStock;
 import com.sistemagas.pedidos.model.PedidoDetalle;
 import com.sistemagas.pedidos.model.Ruta;
 import com.sistemagas.pedidos.model.RutaPedido;
@@ -20,7 +20,7 @@ import com.sistemagas.pedidos.repository.PedidoRepository;
 import com.sistemagas.pedidos.repository.RutaPedidoRepository;
 import com.sistemagas.pedidos.repository.RutaRepository;
 import com.sistemagas.pedidos.repository.UsuarioRepository;
-import com.sistemagas.pedidos.repository.port.GarrafaRepositoryPort;
+import com.sistemagas.pedidos.repository.TipoGarrafaStockRepository;
 import com.sistemagas.pedidos.service.SupabaseStorageService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -49,9 +49,10 @@ class RutaServiceImplTest {
     @Mock private PedidoRepository pedidoRepository;
     @Mock private UsuarioRepository usuarioRepository;
     @Mock private com.sistemagas.pedidos.service.RoutingService routingService;
-    @Mock private com.sistemagas.pedidos.util.GarrafaStockHelper garrafaStockHelper;
+    @Mock private com.sistemagas.pedidos.service.InventarioService inventarioService;
+    @Mock private com.sistemagas.pedidos.repository.DepositoRepository depositoRepository;
+    @Mock private TipoGarrafaStockRepository tipoGarrafaStockRepository;
     @Mock private DepositoProperties depositoProperties;
-    @Mock private GarrafaRepositoryPort garrafaRepositoryPort;
     @Mock private SupabaseStorageService supabaseStorageService;
 
     private RutaServiceImpl service;
@@ -66,8 +67,8 @@ class RutaServiceImplTest {
     @BeforeEach
     void setUp() {
         service = new RutaServiceImpl(rutaRepository, rutaPedidoRepository, pedidoRepository,
-                usuarioRepository, routingService, garrafaStockHelper, depositoProperties,
-                garrafaRepositoryPort, supabaseStorageService);
+                usuarioRepository, routingService, inventarioService, depositoRepository, tipoGarrafaStockRepository, depositoProperties,
+                supabaseStorageService);
 
         repartidorDuenio = Usuario.builder().id(10L).rol(RolUsuario.REPARTIDOR).build();
         otroRepartidor = Usuario.builder().id(20L).rol(RolUsuario.REPARTIDOR).build();
@@ -85,7 +86,7 @@ class RutaServiceImplTest {
 
         PedidoDetalle detalle = PedidoDetalle.builder()
                 .id(100L)
-                .garrafaId(1L)
+                .tipoGarrafaId(1L)
                 .cantidad(2)
                 .cantidadEntregada(null)
                 .precioUnitario(new BigDecimal("5500.00"))
@@ -116,24 +117,35 @@ class RutaServiceImplTest {
                 .duracionDesdeAnteriorS(0)
                 .estadoEntrega(EstadoEntrega.PENDIENTE)
                 .build();
+
+        Deposito depositoMock = new Deposito();
+        depositoMock.setId(1L);
+        lenient().when(depositoRepository.findByRepartidorIdAndActivoTrue(anyLong()))
+                .thenReturn(Optional.of(depositoMock));
+
+        TipoGarrafaStock tipoStockMock = new TipoGarrafaStock();
+        tipoStockMock.setId(10L);
+        tipoStockMock.setCodigo("10KG");
+        lenient().when(tipoGarrafaStockRepository.findByCodigo(anyString()))
+                .thenReturn(Optional.of(tipoStockMock));
+                
+        lenient().when(tipoGarrafaStockRepository.findById(anyLong()))
+                .thenReturn(Optional.of(tipoGarrafaStockMock(1L, "10KG")));
     }
 
-    private Garrafa garrafaMock(Long id, com.sistemagas.pedidos.enums.TipoGarrafa tipo) {
-        Integer[] stock = {100};
-        return new Garrafa() {
-            @Override public Long getId() { return id; }
-            @Override public Integer getStockDisponible() { return stock[0]; }
-            @Override public void setStockDisponible(Integer s) { stock[0] = s; }
-            @Override public BigDecimal getPrecio() { return new BigDecimal("5500.00"); }
-            @Override public com.sistemagas.pedidos.enums.TipoGarrafa getTipo() { return tipo; }
-        };
+    private TipoGarrafaStock tipoGarrafaStockMock(Long id, String codigo) {
+        TipoGarrafaStock tgs = new TipoGarrafaStock();
+        tgs.setId(id);
+        tgs.setCodigo(codigo);
+        tgs.setPrecio(new BigDecimal("5500.00"));
+        return tgs;
     }
 
     @Test
     @DisplayName("obtenerPedidoDeParada: REPARTIDOR duenio de la ruta recibe el DTO completo")
     void obtenerPedidoDeParada_repartidorDuenio_retornaDtoCompleto() {
         when(rutaPedidoRepository.findById(10L)).thenReturn(Optional.of(parada));
-        when(garrafaRepositoryPort.findById(1L)).thenReturn(Optional.of(garrafaMock(1L, com.sistemagas.pedidos.enums.TipoGarrafa.GARRAFA_10KG)));
+        when(tipoGarrafaStockRepository.findById(1L)).thenReturn(Optional.of(tipoGarrafaStockMock(1L, "10KG")));
         when(supabaseStorageService.getSignedUrl(any())).thenReturn("https://signed.example/cliente.jpg");
 
         DeliveryReadOnlyResponse response = service.obtenerPedidoDeParada(10L, repartidorDuenio);
@@ -147,7 +159,7 @@ class RutaServiceImplTest {
         assertThat(response.getCliente().getUrlFotoEvidencia()).isEqualTo("https://signed.example/cliente.jpg");
         assertThat(response.getDetalles()).hasSize(1);
         assertThat(response.getDetalles().get(0).getGarrafaTipo())
-                .isEqualTo(com.sistemagas.pedidos.enums.TipoGarrafa.GARRAFA_10KG);
+                .isEqualTo("10KG");
         assertThat(response.getDetalles().get(0).getCantidad()).isEqualTo(2);
         assertThat(response.getDetalles().get(0).getCantidadEntregada()).isNull();
         assertThat(response.getParada().getRutaPedidoId()).isEqualTo(10L);
@@ -172,7 +184,7 @@ class RutaServiceImplTest {
     @DisplayName("obtenerPedidoDeParada: ADMIN puede ver paradas de cualquier repartidor")
     void obtenerPedidoDeParada_adminVeCualquierParada() {
         when(rutaPedidoRepository.findById(10L)).thenReturn(Optional.of(parada));
-        when(garrafaRepositoryPort.findById(1L)).thenReturn(Optional.of(garrafaMock(1L, com.sistemagas.pedidos.enums.TipoGarrafa.GARRAFA_10KG)));
+        when(tipoGarrafaStockRepository.findById(1L)).thenReturn(Optional.of(tipoGarrafaStockMock(1L, "10KG")));
 
         DeliveryReadOnlyResponse response = service.obtenerPedidoDeParada(10L, adminUser);
 
@@ -190,7 +202,7 @@ class RutaServiceImplTest {
                 .hasMessageContaining("Parada no encontrada");
 
         verify(supabaseStorageService, never()).getSignedUrl(any());
-        verify(garrafaRepositoryPort, never()).findById(anyLong());
+        verify(tipoGarrafaStockRepository, never()).findById(anyLong());
     }
 
     @Test
@@ -325,7 +337,7 @@ class RutaServiceImplTest {
     void actualizarEstadoParada_100PorCientoEntregadas_quedaCompletada() {
         PedidoDetalle det = new PedidoDetalle();
         det.setId(1L);
-        det.setGarrafaId(1L);
+        det.setTipoGarrafaId(1L);
         det.setCantidad(2);
         det.setPrecioUnitario(new BigDecimal("5500"));
 
@@ -376,7 +388,7 @@ class RutaServiceImplTest {
     void actualizarEstadoParada_100PorCientoFallidas_quedaReprogramada() {
         PedidoDetalle det = new PedidoDetalle();
         det.setId(1L);
-        det.setGarrafaId(1L);
+        det.setTipoGarrafaId(1L);
         det.setCantidad(2);
         det.setPrecioUnitario(new BigDecimal("5500"));
 
@@ -428,7 +440,7 @@ class RutaServiceImplTest {
     void actualizarEstadoParada_mixto_quedaCompletada() {
         PedidoDetalle det = new PedidoDetalle();
         det.setId(1L);
-        det.setGarrafaId(1L);
+        det.setTipoGarrafaId(1L);
         det.setCantidad(2);
         det.setPrecioUnitario(new BigDecimal("5500"));
 
@@ -480,7 +492,7 @@ class RutaServiceImplTest {
     void actualizarEstadoParada_quedaUnaPendiente_noCambiaEstadoRuta() {
         PedidoDetalle det = new PedidoDetalle();
         det.setId(1L);
-        det.setGarrafaId(1L);
+        det.setTipoGarrafaId(1L);
         det.setCantidad(2);
         det.setPrecioUnitario(new BigDecimal("5500"));
 

@@ -19,7 +19,6 @@ import com.sistemagas.pedidos.enums.EstadoRuta;
 import com.sistemagas.pedidos.exception.BusinessException;
 import com.sistemagas.pedidos.exception.ResourceNotFoundException;
 import com.sistemagas.pedidos.model.Cliente;
-import com.sistemagas.pedidos.model.GarrafaModel;
 import com.sistemagas.pedidos.model.Pedido;
 import com.sistemagas.pedidos.model.PedidoDetalle;
 import com.sistemagas.pedidos.model.Ruta;
@@ -29,12 +28,16 @@ import com.sistemagas.pedidos.repository.PedidoRepository;
 import com.sistemagas.pedidos.repository.RutaPedidoRepository;
 import com.sistemagas.pedidos.repository.RutaRepository;
 import com.sistemagas.pedidos.repository.UsuarioRepository;
-import com.sistemagas.pedidos.repository.port.GarrafaRepositoryPort;
 import com.sistemagas.pedidos.service.RoutingService;
 import com.sistemagas.pedidos.service.RutaService;
 import com.sistemagas.pedidos.service.SupabaseStorageService;
+import com.sistemagas.pedidos.dto.request.VentaStockRequest;
+import com.sistemagas.pedidos.service.InventarioService;
+import com.sistemagas.pedidos.repository.DepositoRepository;
+import com.sistemagas.pedidos.repository.TipoGarrafaStockRepository;
+import com.sistemagas.pedidos.model.Deposito;
+import com.sistemagas.pedidos.model.TipoGarrafaStock;
 import com.sistemagas.pedidos.util.Constantes;
-import com.sistemagas.pedidos.util.GarrafaStockHelper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -64,9 +67,10 @@ public class RutaServiceImpl implements RutaService {
     private final PedidoRepository pedidoRepository;
     private final UsuarioRepository usuarioRepository;
     private final RoutingService routingService;
-    private final GarrafaStockHelper garrafaStockHelper;
+    private final InventarioService inventarioService;
+    private final DepositoRepository depositoRepository;
+    private final TipoGarrafaStockRepository tipoGarrafaStockRepository;
     private final DepositoProperties depositoProperties;
-    private final GarrafaRepositoryPort garrafaRepositoryPort;
     private final SupabaseStorageService supabaseStorageService;
 
     /**
@@ -201,6 +205,9 @@ public class RutaServiceImpl implements RutaService {
         if (nuevoEstado == EstadoEntrega.ENTREGADO) {
             pedido.setEstado(EstadoPedido.ENTREGADO);
             
+            Deposito camion = depositoRepository.findByRepartidorIdAndActivoTrue(parada.getRuta().getRepartidor().getId())
+                    .orElseThrow(() -> new BusinessException("El repartidor no tiene un camión activo asignado"));
+
             // Entregas parciales
             if (request.getEntregas() != null && !request.getEntregas().isEmpty()) {
                 Map<Long, Integer> entregasMap = request.getEntregas().stream()
@@ -212,11 +219,6 @@ public class RutaServiceImpl implements RutaService {
                     if (entregasMap.containsKey(detalle.getId())) {
                         Integer cantEntregada = entregasMap.get(detalle.getId());
                         detalle.setCantidadEntregada(cantEntregada);
-                        
-                        int noEntregadas = detalle.getCantidad() - (cantEntregada != null ? cantEntregada : 0);
-                        if (noEntregadas > 0) {
-                            garrafaStockHelper.restituirStock(detalle.getGarrafaId(), noEntregadas);
-                        }
                     } else {
                         detalle.setCantidadEntregada(detalle.getCantidad());
                     }
@@ -226,14 +228,30 @@ public class RutaServiceImpl implements RutaService {
                     detalle.setCantidadEntregada(detalle.getCantidad());
                 }
             }
+
+            // Registrar ventas en el motor de stock
+            for (com.sistemagas.pedidos.model.PedidoDetalle detalle : pedido.getDetalles()) {
+                if (detalle.getCantidadEntregada() != null && detalle.getCantidadEntregada() > 0) {
+                    TipoGarrafaStock tipoStock = tipoGarrafaStockRepository.findById(detalle.getTipoGarrafaId())
+                            .orElseThrow(() -> new BusinessException("Tipo de garrafa de stock no encontrado: id=" + detalle.getTipoGarrafaId()));
+                    
+                    VentaStockRequest ventaReq = VentaStockRequest.builder()
+                            .camionId(camion.getId())
+                            .tipoGarrafaId(tipoStock.getId())
+                            .cantidadEntregadas(detalle.getCantidadEntregada())
+                            .cantidadRecibidas(detalle.getCantidadEntregada()) // Asumimos devolución 1 a 1 por ahora
+                            .pedidoId(pedido.getId())
+                            .observaciones("Venta desde app repartidor en parada " + parada.getId())
+                            .build();
+                    
+                    inventarioService.registrarVenta(ventaReq, autenticado);
+                }
+            }
+
         } else if (nuevoEstado == EstadoEntrega.FALLIDO) {
             parada.setMotivoFallo(request.getMotivoFallo());
             pedido.setEstado(EstadoPedido.REPROGRAMADO);
-            
-            // Si falló, restituir todo el stock reservado
-            for (com.sistemagas.pedidos.model.PedidoDetalle detalle : pedido.getDetalles()) {
-                garrafaStockHelper.restituirStock(detalle.getGarrafaId(), detalle.getCantidad());
-            }
+            // Ya no es necesario restituir stock genérico, el stock sigue en el camión
         }
         
         rutaPedidoRepository.save(parada);
@@ -363,15 +381,15 @@ public class RutaServiceImpl implements RutaService {
         if (detalles == null || detalles.isEmpty()) return new ArrayList<>();
         List<DeliveryDetalleResponse> result = new ArrayList<>();
         for (PedidoDetalle d : detalles) {
-            com.sistemagas.pedidos.enums.TipoGarrafa tipo = null;
-            GarrafaModel garrafa = garrafaRepositoryPort.findById(d.getGarrafaId()).orElse(null);
-            if (garrafa != null && garrafa.getTipo() != null) {
-                tipo = garrafa.getTipo();
+            String tipo = null;
+            TipoGarrafaStock garrafa = tipoGarrafaStockRepository.findById(d.getTipoGarrafaId()).orElse(null);
+            if (garrafa != null) {
+                tipo = garrafa.getCodigo();
             }
 
             result.add(DeliveryDetalleResponse.builder()
                     .id(d.getId())
-                    .garrafaId(d.getGarrafaId())
+                    .tipoGarrafaId(d.getTipoGarrafaId())
                     .garrafaTipo(tipo)
                     .cantidad(d.getCantidad())
                     .cantidadEntregada(d.getCantidadEntregada())

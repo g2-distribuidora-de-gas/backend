@@ -21,7 +21,7 @@ class PedidoDetalleTest {
     @DisplayName("@PrePersist calcularSubtotal: usa cantidad, NO cantidadEntregada")
     void prePersist_usaCantidadParaCalcularSubtotal() throws Exception {
         PedidoDetalle detalle = PedidoDetalle.builder()
-                .garrafaId(1L)
+                .tipoGarrafaId(1L)
                 .cantidad(5)
                 .cantidadEntregada(null)
                 .precioUnitario(new BigDecimal("5500.00"))
@@ -36,7 +36,7 @@ class PedidoDetalleTest {
     @DisplayName("@PrePersist calcularSubtotal: ignora cantidadEntregada aunque este seteada")
     void prePersist_ignoraCantidadEntregadaInicial() throws Exception {
         PedidoDetalle detalle = PedidoDetalle.builder()
-                .garrafaId(1L)
+                .tipoGarrafaId(1L)
                 .cantidad(5)
                 .cantidadEntregada(2)
                 .precioUnitario(new BigDecimal("5500.00"))
@@ -51,7 +51,7 @@ class PedidoDetalleTest {
     @DisplayName("subtotal NO se recalcula cuando cantidadEntregada cambia (entrega parcial)")
     void subtotalNoCambiaTrasEntregaParcial() throws Exception {
         PedidoDetalle detalle = PedidoDetalle.builder()
-                .garrafaId(1L)
+                .tipoGarrafaId(1L)
                 .cantidad(5)
                 .cantidadEntregada(null)
                 .precioUnitario(new BigDecimal("5500.00"))
@@ -76,7 +76,7 @@ class PedidoDetalleTest {
     @DisplayName("@PrePersist calcularSubtotal: precioUnitario null tira IllegalStateException (no calcula 0)")
     void prePersist_sinPrecioUnitario_lanzaExcepcion() throws Exception {
         PedidoDetalle detalle = PedidoDetalle.builder()
-                .garrafaId(1L)
+                .tipoGarrafaId(1L)
                 .cantidad(5)
                 .precioUnitario(null)
                 .build();

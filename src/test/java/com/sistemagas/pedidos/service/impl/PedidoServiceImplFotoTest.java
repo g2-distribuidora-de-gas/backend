@@ -10,11 +10,11 @@ import com.sistemagas.pedidos.model.Pedido;
 import com.sistemagas.pedidos.repository.ClienteRepository;
 import com.sistemagas.pedidos.repository.PedidoRepository;
 import com.sistemagas.pedidos.repository.UsuarioRepository;
-import com.sistemagas.pedidos.repository.port.GarrafaRepositoryPort;
+import com.sistemagas.pedidos.repository.TipoGarrafaStockRepository;
 import com.sistemagas.pedidos.service.SupabaseStorageService;
 import com.sistemagas.pedidos.support.NoopTransactionManager;
 import com.sistemagas.pedidos.util.Constantes;
-import com.sistemagas.pedidos.util.GarrafaStockHelper;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -45,7 +45,7 @@ class PedidoServiceImplFotoTest {
     private PedidoRepository pedidoRepository;
 
     @Mock
-    private GarrafaRepositoryPort garrafaRepositoryPort;
+    private TipoGarrafaStockRepository tipoGarrafaStockRepository;
 
     @Mock
     private ClienteRepository clienteRepository;
@@ -60,7 +60,7 @@ class PedidoServiceImplFotoTest {
 
     @BeforeEach
     void setUp() {
-        GarrafaStockHelper garrafaStockHelper = new GarrafaStockHelper(garrafaRepositoryPort);
+
         PedidoDetalleMapperImpl pedidoDetalleMapper = new PedidoDetalleMapperImpl();
         PedidoMapperImpl pedidoMapper = new PedidoMapperImpl();
 
@@ -68,12 +68,11 @@ class PedidoServiceImplFotoTest {
 
         service = new PedidoServiceImpl(
                 pedidoRepository,
-                garrafaRepositoryPort,
+                tipoGarrafaStockRepository,
                 clienteRepository,
                 usuarioRepository,
                 pedidoMapper,
                 pedidoDetalleMapper,
-                garrafaStockHelper,
                 supabaseStorageService,
                 txTemplate);
     }
