@@ -38,7 +38,10 @@ public class ClienteServiceImpl implements ClienteService {
         boolean direccionCambio = !Objects.equals(clienteExistente.getDireccion(), clienteModificado.getDireccion());
         
         clienteExistente.setNombre(clienteModificado.getNombre());
+        clienteExistente.setApellido(clienteModificado.getApellido());
         clienteExistente.setTelefono(clienteModificado.getTelefono());
+        clienteExistente.setEmail(clienteModificado.getEmail());
+        clienteExistente.setDni(clienteModificado.getDni());
         clienteExistente.setDireccion(clienteModificado.getDireccion());
         
         boolean coordsManuales = false;

@@ -13,7 +13,10 @@ public class ClienteResponse {
     private Long id;
     private String uuidOffline;
     private String nombre;
+    private String apellido;
     private String telefono;
+    private String email;
+    private String dni;
     private String direccion;
     private BigDecimal latitud;
     private BigDecimal longitud;
