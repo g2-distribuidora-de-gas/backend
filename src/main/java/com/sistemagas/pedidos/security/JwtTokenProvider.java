@@ -51,6 +51,10 @@ public class JwtTokenProvider {
                 .getSubject();
     }
 
+    public SecretKey getKey() {
+        return key;
+    }
+
     public boolean validateToken(String token) {
         try {
             Jwts.parser().verifyWith(key).build().parseSignedClaims(token);

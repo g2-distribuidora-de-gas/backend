@@ -22,6 +22,7 @@ import com.sistemagas.pedidos.repository.RutaRepository;
 import com.sistemagas.pedidos.repository.UsuarioRepository;
 import com.sistemagas.pedidos.repository.TipoGarrafaStockRepository;
 import com.sistemagas.pedidos.service.SupabaseStorageService;
+import com.sistemagas.pedidos.service.TrackingService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -54,6 +55,7 @@ class RutaServiceImplTest {
     @Mock private TipoGarrafaStockRepository tipoGarrafaStockRepository;
     @Mock private DepositoProperties depositoProperties;
     @Mock private SupabaseStorageService supabaseStorageService;
+    @Mock private TrackingService trackingService;
 
     private RutaServiceImpl service;
 
@@ -68,7 +70,7 @@ class RutaServiceImplTest {
     void setUp() {
         service = new RutaServiceImpl(rutaRepository, rutaPedidoRepository, pedidoRepository,
                 usuarioRepository, routingService, inventarioService, depositoRepository, tipoGarrafaStockRepository, depositoProperties,
-                supabaseStorageService);
+                supabaseStorageService, trackingService);
 
         repartidorDuenio = Usuario.builder().id(10L).rol(RolUsuario.REPARTIDOR).build();
         otroRepartidor = Usuario.builder().id(20L).rol(RolUsuario.REPARTIDOR).build();

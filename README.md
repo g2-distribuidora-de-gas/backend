@@ -259,6 +259,100 @@ src/main/java/com/sistemagas/pedidos/
 | `GET` | `/api/rutas/paradas/{rutaPedidoId}/pedido` | Detalle liviano del pedido de una parada (app del repartidor) | REPARTIDOR, ADMIN, SUPER_ADMIN |
 | `GET` | `/api/rutas/reprogramadas` | Reporte de rutas REPROGRAMADAS con detalle de paradas fallidas | ADMIN, SUPER_ADMIN |
 
+### Tracking en tiempo real (WebSocket / STOMP)
+
+Endpoint STOMP para que el repartidor envie su posicion GPS y el panel admin la vea en vivo
+sobre un mapa (LocationIQ en el front).
+
+**Conexion (cliente STOMP):**
+
+| Endpoint | Transporte | Uso |
+|---|---|---|
+| `ws://host:8080/ws` | SockJS (con fallback xhr-streaming) | SPA / web tradicional |
+| `ws://host:8080/ws-native` | WebSocket nativo | Tests, clientes mobile que no necesitan SockJS |
+
+**Auth:** el cliente debe mandar el JWT en `?token=...` al handshake (o en el header
+`Authorization: Bearer ...`). El server valida el token antes de aceptar la conexion.
+
+**STOMP app destinations (cliente → server):**
+
+| Destino | Descripcion |
+|---|---|
+| `/app/rutas/{rutaId}/posicion` | Repartidor publica una coordenada GPS |
+
+**STOMP broker destinations (server → cliente):**
+
+| Destino | Suscriptores permitidos | Payload |
+|---|---|---|
+| `/topic/rutas/{rutaId}/posiciones` | ADMIN/SUPER_ADMIN, o el REPARTIDOR dueno de la ruta | `PosicionBroadcastDto` (JSON) |
+| `/topic/rutas/{rutaId}/eventos` | cualquiera autenticado | `EventoRutaWsDto` (cambios de estado, paradas) |
+| `/user/queue/errors` | el propio usuario | `ErrorWsDto` (validaciones, autorizacion) |
+
+**Ejemplo de flujo (Angular / sockjs-client):**
+
+```ts
+import SockJS from 'sockjs-client';
+import { Client, Stomp } from '@stomp/stompjs';
+
+const client = new Client({
+  webSocketFactory: () => new SockJS(`/ws?token=${jwt}`),
+  reconnectDelay: 5000,
+});
+
+client.onConnect = () => {
+  // Suscribirse al topico de la ruta que administra el usuario
+  client.subscribe(`/topic/rutas/${rutaId}/posiciones`, msg => {
+    const pos = JSON.parse(msg.body);
+    marker.setLatLng([pos.latitud, pos.longitud]);
+  });
+
+  // Suscribirse a errores per-usuario
+  client.subscribe('/user/queue/errors', msg => {
+    const err = JSON.parse(msg.body);
+    console.warn('WS error', err.codigo, err.mensaje);
+  });
+};
+
+client.activate();
+```
+
+**Desde el movil del repartidor:**
+
+```ts
+// Cada N segundos (configurable, default 5s)
+client.publish({
+  destination: `/app/rutas/${rutaId}/posicion`,
+  body: JSON.stringify({
+    latitud, longitud,
+    headingGrados, velocidadMps, precisionM,
+    timestampCliente: new Date().toISOString(),
+    origen: 'GPS',
+  }),
+});
+```
+
+**Validaciones automaticas del server:**
+
+* Repartidor solo puede publicar coordenadas de una ruta en estado `PLANIFICADA` o `EN_CURSO`.
+* Repartidor no puede subscribirse a la ruta de otro.
+* Coordenadas fuera de `[-90,90] / [-180,180]` se rechazan con codigo `LATITUD_INVALIDA` o `LONGITUD_INVALIDA`.
+* `timestampCliente` con drift > 5 min se rechaza (anti-replay).
+
+No se persisten posiciones en BD; el server solo retransmite. Para activar persistencia
+agregar la columna/migracion correspondiente y un metodo en `TrackingServiceImpl`.
+
+**Configuracion (`application.yml`):**
+
+```yaml
+app:
+  websocket:
+    heartbeat-ms: 10000
+    allowed-origins: http://localhost:*,http://127.0.0.1:*
+    posicion:
+      max-retraso-segundos: 300
+      max-anticipo-segundos: 60
+```
+
 #### `GET /api/rutas` — Listar todas las rutas (panel admin)
 
 Devuelve las rutas de reparto (cualquier estado) en un rango de fechas, ordenadas por

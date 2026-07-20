@@ -2,6 +2,7 @@ package com.sistemagas.pedidos.service.impl;
 
 import com.sistemagas.pedidos.config.DepositoProperties;
 import com.sistemagas.pedidos.dto.location.RouteResultDto;
+import com.sistemagas.pedidos.dto.realtime.EventoRutaWsDto;
 import com.sistemagas.pedidos.dto.request.ActualizarParadaRequest;
 import com.sistemagas.pedidos.dto.response.ClienteDeliveryResponse;
 import com.sistemagas.pedidos.dto.response.ClienteResumenResponse;
@@ -31,6 +32,7 @@ import com.sistemagas.pedidos.repository.UsuarioRepository;
 import com.sistemagas.pedidos.service.RoutingService;
 import com.sistemagas.pedidos.service.RutaService;
 import com.sistemagas.pedidos.service.SupabaseStorageService;
+import com.sistemagas.pedidos.service.TrackingService;
 import com.sistemagas.pedidos.dto.request.VentaStockRequest;
 import com.sistemagas.pedidos.service.InventarioService;
 import com.sistemagas.pedidos.repository.DepositoRepository;
@@ -72,6 +74,7 @@ public class RutaServiceImpl implements RutaService {
     private final TipoGarrafaStockRepository tipoGarrafaStockRepository;
     private final DepositoProperties depositoProperties;
     private final SupabaseStorageService supabaseStorageService;
+    private final TrackingService trackingService;
 
     /**
      * Mapa de transiciones permitidas para {@link EstadoRuta}.
@@ -259,6 +262,16 @@ public class RutaServiceImpl implements RutaService {
 
         // Verificar si la ruta entera fue procesada (todas las paradas resueltas)
         Ruta ruta = parada.getRuta();
+
+        trackingService.emitirEventoRuta(
+                ruta,
+                ruta.getEstado(),
+                EventoRutaWsDto.builder()
+                        .tipo("CAMBIO_ESTADO_PARADA")
+                        .rutaPedidoId(parada.getId())
+                        .mensaje("Parada " + parada.getId() + " marcada como " + nuevoEstado)
+                        .build());
+
         boolean todasProcesadas = ruta.getParadas().stream()
                 .allMatch(p -> p.getEstadoEntrega() != EstadoEntrega.PENDIENTE);
 
@@ -280,8 +293,20 @@ public class RutaServiceImpl implements RutaService {
             // Solo aplicar si la transición está permitida (no pisar CANCELADA u otro estado terminal).
             if (TRANSICIONES_RUTA.getOrDefault(ruta.getEstado(), Set.of())
                     .contains(nuevoEstadoRuta)) {
+                EstadoRuta estadoAnteriorRuta = ruta.getEstado();
                 ruta.setEstado(nuevoEstadoRuta);
                 rutaRepository.save(ruta);
+
+                trackingService.emitirEventoRuta(
+                        ruta,
+                        estadoAnteriorRuta,
+                        EventoRutaWsDto.builder()
+                                .tipo("CAMBIO_ESTADO_RUTA")
+                                .estadoAnterior(estadoAnteriorRuta)
+                                .estadoNuevo(nuevoEstadoRuta)
+                                .mensaje("Ruta " + ruta.getId()
+                                        + " auto-completada al cerrar todas las paradas")
+                                .build());
             }
         }
     }
@@ -308,8 +333,21 @@ public class RutaServiceImpl implements RutaService {
                     "TRANSICION_ESTADO_RUTA_INVALIDA");
         }
 
+        EstadoRuta estadoAnterior = ruta.getEstado();
         ruta.setEstado(nuevoEstado);
-        return rutaRepository.save(ruta);
+        Ruta rutaGuardada = rutaRepository.save(ruta);
+
+        trackingService.emitirEventoRuta(
+                rutaGuardada,
+                estadoAnterior,
+                EventoRutaWsDto.builder()
+                        .tipo("CAMBIO_ESTADO_RUTA")
+                        .estadoAnterior(estadoAnterior)
+                        .estadoNuevo(nuevoEstado)
+                        .mensaje("Ruta " + rutaId + " cambio de " + estadoAnterior + " a " + nuevoEstado)
+                        .build());
+
+        return rutaGuardada;
     }
 
     @Override

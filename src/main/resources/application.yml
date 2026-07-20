@@ -58,6 +58,13 @@ app:
     deposito:
       lat: ${DEPOSITO_LAT:-26.2072404}
       lng: ${DEPOSITO_LNG:-58.2123249}
+  websocket:
+    heartbeat-ms: ${WS_HEARTBEAT_MS:10000}
+    allowed-origins: ${WS_ALLOWED_ORIGINS:http://localhost:*,http://127.0.0.1:*}
+    posicion:
+      max-retraso-segundos: ${WS_POS_MAX_RETRASO:300}
+      max-anticipo-segundos: ${WS_POS_MAX_ANTICIPO:60}
+      min-intervalo-segundos: ${WS_POS_MIN_INTERVALO:1}
 
 locationiq:
   api-key: ${LOCATIONIQ_API_KEY:}
