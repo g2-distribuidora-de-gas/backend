@@ -2,6 +2,7 @@ package com.sistemagas.pedidos.model;
 
 import com.sistemagas.pedidos.model.base.Auditable;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -34,9 +35,22 @@ public class Cliente extends Auditable {
     @Column(nullable = false, length = 100)
     private String nombre;
 
+    @Size(max = 100)
+    @Column(length = 100)
+    private String apellido;
+
     @Size(max = 30)
     @Column(length = 30)
     private String telefono;
+
+    @Email(message = "El email debe tener un formato valido")
+    @Size(max = 150)
+    @Column(length = 150, unique = true)
+    private String email;
+
+    @Size(max = 20)
+    @Column(length = 20, unique = true)
+    private String dni;
 
     @NotBlank(message = "La direccion es obligatoria")
     @Size(max = 300)
