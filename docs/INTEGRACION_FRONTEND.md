@@ -25,51 +25,40 @@
 Pensado para que el panel admin dibuje la posicion del repartidor en vivo sobre un mapa
 (LocationIQ en el front) y para que la app del repartidor publique su GPS cada N segundos.
 
+> **Documentacion completa:** ver [`docs/WEBSOCKETS_FRONTEND.md`](WEBSOCKETS_FRONTEND.md) — incluye
+> snippets Angular completos, version mobile (Capacitor/React Native), pruebas manuales con
+> `wscat` y casos borde. Esta seccion es solo un resumen rapido.
+
 **Conexion (el front abre una sola sesion STOMP por usuario):**
 
+| Endpoint | Transporte | Uso |
+|---|---|---|
+| `ws://host/ws` | SockJS (xhr-streaming, long-polling) | SPA web |
+| `ws://host/ws-native` | WebSocket nativo | Mobile nativo, tests |
+
+**Auth:** JWT en `?token=...` (mas compatible) o en `Authorization: Bearer ...` en el
+handshake HTTP. Mismo JWT que devuelve `POST /api/auth/login`.
+
+**Snippet minimo (Angular + @stomp/stompjs + SockJS):**
+
 ```ts
-// Angular / @stomp/ng2-stompjs
-const stompConfig: StompConfig = {
-  url: () => new SockJS(`/ws?token=${encodeURIComponent(jwt)}`),
-  // headers_connect: { Authorization: `Bearer ${jwt}` }, // alternativa al query
+const client = new Client({
+  webSocketFactory: () => new SockJS(`/ws?token=${encodeURIComponent(jwt)}`),
   reconnectDelay: 5000,
   heartbeatIncoming: 10000,
   heartbeatOutgoing: 10000,
-};
-```
-
-**Endpoint nativo (sin SockJS):** `ws://host:8080/ws-native?token=<jwt>` — útil para clientes
-mobile que no quieren el fallback SockJS.
-
-**Desde el panel admin (suscribirse a las posiciones de una ruta):**
-
-```ts
-stompService.subscribe(`/topic/rutas/${rutaId}/posiciones`).subscribe(msg => {
-  const pos: PosicionBroadcastDto = JSON.parse(msg.body);
-  mapService.actualizarMarker(pos.repartidorId, [pos.latitud, pos.longitud], pos.headingGrados);
 });
 
-stompService.subscribe(`/topic/rutas/${rutaId}/eventos`).subscribe(msg => {
-  const evt: EventoRutaWsDto = JSON.parse(msg.body);
-  if (evt.tipo === 'CAMBIO_ESTADO_RUTA') {
-    toast.info(`Ruta ${evt.rutaId}: ${evt.estadoAnterior} -> ${evt.estadoNuevo}`);
-  }
-});
+client.onConnect = () => {
+  // Admin: subscribirse a las posiciones
+  client.subscribe(`/topic/rutas/${rutaId}/posiciones`, msg => {
+    const pos: PosicionBroadcastDto = JSON.parse(msg.body);
+    mapService.moverMarker(pos.repartidorId, [pos.latitud, pos.longitud]);
+  });
 
-// errores per-usuario (validacion / autorizacion)
-stompService.subscribe('/user/queue/errors').subscribe(msg => {
-  const err: ErrorWsDto = JSON.parse(msg.body);
-  toast.error(`${err.codigo}: ${err.mensaje}`);
-});
-```
-
-**Desde la app del repartidor (publicar la posicion GPS):**
-
-```ts
-// Disparar cada N segundos (ej: 5s) con la API de geolocation del dispositivo
-watchId = navigator.geolocation.watchPosition(
-  ({ coords, timestamp }) => {
-    stompService.publish({
+  // Repartidor: publicar cada N segundos
+  navigator.geolocation.watchPosition(({ coords, timestamp }) => {
+    client.publish({
       destination: `/app/rutas/${rutaId}/posicion`,
       body: JSON.stringify({
         latitud: coords.latitude,
@@ -81,84 +70,28 @@ watchId = navigator.geolocation.watchPosition(
         origen: 'GPS',
       }),
     });
-  },
-  err => console.warn('Geolocation error', err),
-  { enableHighAccuracy: true, maximumAge: 1000, timeout: 5000 }
-);
+  });
+};
+
+client.activate();
 ```
 
-**Contratos (DTOs JSON):**
+**Topicos:**
 
-```ts
-// Lo que envia el repartidor al server
-interface PosicionRepartidorDto {
-  rutaId?: number;
-  latitud: number;             // -90..90
-  longitud: number;            // -180..180
-  headingGrados?: number;      // 0..360
-  velocidadMps?: number;
-  precisionM?: number;
-  timestampCliente?: string;   // ISO-8601
-  origen?: 'GPS' | 'NETWORK' | 'MANUAL';
-}
+| Direccion | Destino | Payload |
+|---|---|---|
+| Cliente → Server | `/app/rutas/{rutaId}/posicion` | `PosicionRepartidorDto` |
+| Server → Cliente | `/topic/rutas/{rutaId}/posiciones` | `PosicionBroadcastDto` |
+| Server → Cliente | `/topic/rutas/{rutaId}/eventos` | `EventoRutaWsDto` |
+| Server → Cliente (per-user) | `/user/queue/errors` | `ErrorWsDto` |
 
-// Lo que el server retransmite al topico (incluye datos del repartidor y sello del server)
-interface PosicionBroadcastDto {
-  rutaId: number;
-  repartidorId: number;
-  repartidorNombre: string;
-  estadoRuta: 'PLANIFICADA' | 'EN_CURSO' | 'COMPLETADA' | 'CANCELADA' | 'REPROGRAMADA';
-  latitud: number;
-  longitud: number;
-  headingGrados?: number;
-  velocidadMps?: number;
-  precisionM?: number;
-  timestampCliente?: string;
-  serverTimestamp: string;
-  origen?: 'GPS' | 'NETWORK' | 'MANUAL';
-}
+**Reglas del server:**
 
-// Eventos automaticos disparados por el backend ante cambios de estado o paradas
-interface EventoRutaWsDto {
-  tipo: 'CAMBIO_ESTADO_RUTA' | 'CAMBIO_ESTADO_PARADA' | 'RUTA_CANCELADA';
-  rutaId: number;
-  repartidorId?: number;
-  estadoAnterior?: 'PLANIFICADA' | 'EN_CURSO' | 'COMPLETADA' | 'CANCELADA' | 'REPROGRAMADA';
-  estadoNuevo?: 'PLANIFICADA' | 'EN_CURSO' | 'COMPLETADA' | 'CANCELADA' | 'REPROGRAMADA';
-  rutaPedidoId?: number;
-  mensaje?: string;
-  timestamp: string;
-}
-
-// Errores per-usuario (autorizacion, validacion)
-interface ErrorWsDto {
-  codigo:
-    | 'NO_AUTH'
-    | 'PAYLOAD_VACIO'
-    | 'RUTA_ID_REQUERIDO'
-    | 'COORDENADAS_REQUERIDAS'
-    | 'LATITUD_INVALIDA'
-    | 'LONGITUD_INVALIDA'
-    | 'TIMESTAMP_MUY_VIEJO'
-    | 'TIMESTAMP_MUY_FUTURO'
-    | 'RUTA_NO_ENCONTRADA'
-    | 'RUTA_NO_PROPIA'
-    | 'RUTA_NO_TRANSMITE'
-    | 'FORBIDDEN_NOT_REPARTIDOR'
-    | 'BAD_REQUEST';
-  mensaje: string;
-  timestamp: string;
-}
-```
-
-**Reglas importantes:**
-
-* El token JWT debe ser el mismo que el del endpoint REST (mismo secreto, misma firma).
-* En `producción` es preferible mandar el token en el header `Authorization: Bearer ...`
-  del handshake para que no quede en los access-logs del proxy.
-* El server **no** persiste posiciones: solo retransmite. Para guardar un historico
-  delgado hay que modificar `TrackingServiceImpl` y agregar la columna correspondiente
-  en una nueva migracion Flyway (`V20__...`).
+* Latitud `[-90, 90]` y longitud `[-180, 180]` obligatorias.
+* `timestampCliente` con drift > 5 min se rechaza (`TIMESTAMP_MUY_VIEJO` / `TIMESTAMP_MUY_FUTURO`).
+* La ruta debe estar en `PLANIFICADA` o `EN_CURSO` para aceptar tracking.
+* Un REPARTIDOR no puede subscribirse a la ruta de otro (rechazo silencioso del SUBSCRIBE).
+* El server **no persiste** posiciones: solo retransmite.
 
 ### Panel admin — listado de rutas de reparto
 

@@ -351,7 +351,15 @@ app:
     posicion:
       max-retraso-segundos: 300
       max-anticipo-segundos: 60
+      min-intervalo-segundos: 1
 ```
+
+**Documentacion detallada para el frontend:**
+
+* Guia completa paso a paso (conexion, DTOs, snippets Angular y mobile, troubleshooting):
+  [`docs/WEBSOCKETS_FRONTEND.md`](docs/WEBSOCKETS_FRONTEND.md)
+* Contratos JSON de los DTOs: ver `WEBSOCKETS_FRONTEND.md` seccion "Modelo de datos".
+* Notas adicionales para el front: [`docs/INTEGRACION_FRONTEND.md`](docs/INTEGRACION_FRONTEND.md#tracking-en-tiempo-real-stompwebsocket).
 
 #### `GET /api/rutas` — Listar todas las rutas (panel admin)
 
