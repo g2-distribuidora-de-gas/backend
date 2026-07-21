@@ -11,6 +11,12 @@ public final class WsDestinations {
     public static final String USER_QUEUE_ERRORS = "/queue/errors";
     public static final String USER_ERRORS_DESTINATION = "/user" + USER_QUEUE_ERRORS;
 
+    /**
+     * Cola privada del repartidor para notificaciones de agenda.
+     * Se entrega via convertAndSendToUser(email, USER_QUEUE_AGENDA, payload).
+     */
+    public static final String USER_QUEUE_AGENDA = "/queue/agenda";
+
     public static String topicPosiciones(Long rutaId) {
         return String.format(TOPIC_POSICIONES_TEMPLATE, rutaId);
     }

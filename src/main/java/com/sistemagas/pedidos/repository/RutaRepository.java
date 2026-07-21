@@ -5,6 +5,8 @@ import com.sistemagas.pedidos.model.Ruta;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
@@ -16,13 +18,10 @@ import java.util.Optional;
 public interface RutaRepository extends JpaRepository<Ruta, Long> {
 
     // Útil para buscar las rutas de un repartidor para una fecha y estado especificos.
-    // Devuelve List porque en produccion puede haber multiples rutas en el mismo estado
-    // (ej: varios lotes planificados). El caller toma la primera.
     @EntityGraph(attributePaths = {"paradas", "paradas.pedido", "paradas.pedido.cliente", "repartidor"})
     List<Ruta> findByRepartidorIdAndFechaRepartoAndEstado(Long repartidorId, LocalDate fechaReparto, EstadoRuta estado);
 
-    // Variante con varios estados para soportar la consulta priorizada de ruta activa
-    // (EN_CURSO > PLANIFICADA > REPROGRAMADA). Devuelve List para mantener consistencia.
+    // Variante con varios estados para soportar la consulta priorizada de ruta activa.
     @EntityGraph(attributePaths = {"paradas", "paradas.pedido", "paradas.pedido.cliente", "repartidor"})
     List<Ruta> findByRepartidorIdAndFechaRepartoAndEstadoIn(Long repartidorId, LocalDate fechaReparto, List<EstadoRuta> estados);
 
@@ -57,4 +56,20 @@ public interface RutaRepository extends JpaRepository<Ruta, Long> {
     // Panel admin: idem filtrando por repartidor.
     @EntityGraph(attributePaths = {"paradas", "paradas.pedido", "paradas.pedido.cliente", "repartidor"})
     List<Ruta> findByRepartidorIdAndFechaRepartoBetween(Long repartidorId, LocalDate desde, LocalDate hasta, Pageable pageable);
+
+    // ─── Agenda ──────────────────────────────────────────────────────────────────
+
+    /**
+     * Agenda del repartidor: rutas en un rango de fechas ordenadas por fecha ASC.
+     * Incluye paradas para calcular resumen (totales). Eager sobre 'repartidor'
+     * para poder leer el email al emitir notificaciones WS.
+     */
+    @EntityGraph(attributePaths = {"paradas", "repartidor"})
+    @Query("SELECT r FROM Ruta r WHERE r.repartidor.id = :repartidorId " +
+           "AND r.fechaReparto BETWEEN :desde AND :hasta " +
+           "ORDER BY r.fechaReparto ASC")
+    List<Ruta> findAgendaByRepartidorId(
+            @Param("repartidorId") Long repartidorId,
+            @Param("desde") LocalDate desde,
+            @Param("hasta") LocalDate hasta);
 }

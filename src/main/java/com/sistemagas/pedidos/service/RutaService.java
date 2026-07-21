@@ -1,9 +1,11 @@
 package com.sistemagas.pedidos.service;
 
+import com.sistemagas.pedidos.dto.request.ActualizarNotasAdminRequest;
 import com.sistemagas.pedidos.dto.request.ActualizarParadaRequest;
+import com.sistemagas.pedidos.dto.request.ConfirmarTurnoRequest;
+import com.sistemagas.pedidos.dto.response.AgendaRepartidorResponse;
 import com.sistemagas.pedidos.dto.response.DeliveryReadOnlyResponse;
 import com.sistemagas.pedidos.dto.response.RutaReprogramadaResponse;
-import com.sistemagas.pedidos.enums.EstadoEntrega;
 import com.sistemagas.pedidos.enums.EstadoRuta;
 import com.sistemagas.pedidos.model.Ruta;
 import com.sistemagas.pedidos.model.Usuario;
@@ -17,57 +19,66 @@ public interface RutaService {
     /**
      * Genera y guarda una ruta optimizada llamando al RoutingService.
      */
-    Ruta planificarRuta(Long repartidorId, List<Long> pedidosIds);
+    Ruta planificarRuta(Long repartidorId, List<Long> pedidosIds, LocalDate fechaReparto);
 
     /**
-     * Obtiene la ruta actual de un repartidor
+     * Obtiene la ruta activa de hoy de un repartidor.
      */
     Ruta obtenerRutaActivaRepartidor(Long repartidorId);
 
     /**
      * Actualiza el estado de una parada específica (ej: PENDIENTE -> ENTREGADO)
-     * y si todo está entregado, puede auto-completar la Ruta.
+     * y si todo está resuelto puede auto-completar la Ruta.
      */
     void actualizarEstadoParada(Long rutaPedidoId, ActualizarParadaRequest request, Usuario autenticado);
 
     /**
-     * Cambia el estado general de la Ruta (ej: EN_CURSO a COMPLETADA)
+     * Cambia el estado general de la Ruta (ej: EN_CURSO a COMPLETADA).
      */
     Ruta cambiarEstadoRuta(Long rutaId, EstadoRuta nuevoEstado, Usuario autenticado);
 
     /**
-     * Devuelve el detalle de un pedido en formato liviano para la app del repartidor,
-     * asociado a su parada (RutaPedido). Aplica validacion de propiedad para REPARTIDOR;
-     * ADMIN/SUPER_ADMIN pueden consultar cualquier parada.
-     *
-     * @throws com.sistemagas.pedidos.exception.ResourceNotFoundException si la parada no existe
-     * @throws com.sistemagas.pedidos.exception.BusinessException si la parada pertenece a la ruta
-     *         de otro repartidor y el usuario autenticado es REPARTIDOR
+     * Devuelve el detalle de un pedido en formato liviano para la app del repartidor.
+     * Aplica validacion de propiedad para REPARTIDOR; ADMIN/SUPER_ADMIN ven cualquier parada.
      */
     DeliveryReadOnlyResponse obtenerPedidoDeParada(Long rutaPedidoId, Usuario autenticado);
 
     /**
-     * Lista rutas en estado REPROGRAMADA con detalle de paradas fallidas, ordenadas por
-     * updatedAt ascendente y luego id ascendente.
-     *
-     * @param fechaDesde    limite inferior del rango de fechaReparto (inclusive). Si es null, default = hoy - 30 dias.
-     * @param fechaHasta    limite superior del rango de fechaReparto (inclusive). Si es null, default = hoy.
-     * @param repartidorId  filtro opcional por repartidor dueño.
-     * @param minUpdatedAt  filtro opcional por updatedAt mayor o igual.
-     * @param limit         maximo de rutas a retornar (1-1000). Si es null, default = 100.
+     * Lista rutas en estado REPROGRAMADA con detalle de paradas fallidas.
      */
     List<RutaReprogramadaResponse> listarReprogramadas(LocalDate fechaDesde, LocalDate fechaHasta,
                                                        Long repartidorId, Instant minUpdatedAt, Integer limit);
 
     /**
-     * Lista todas las rutas (cualquier estado) en un rango de fechas, ordenadas por
-     * updatedAt descendente y luego id descendente. Pensado para el panel del admin.
-     *
-     * @param fechaDesde    limite inferior del rango de fechaReparto (inclusive). Si es null, default = hoy - 30 dias.
-     * @param fechaHasta    limite superior del rango de fechaReparto (inclusive). Si es null, default = hoy.
-     * @param repartidorId  filtro opcional por repartidor dueño.
-     * @param limit         maximo de rutas a retornar (1-1000). Si es null, default = 100.
+     * Lista todas las rutas (cualquier estado) en un rango de fechas. Panel del admin.
      */
     List<Ruta> listarTodas(LocalDate fechaDesde, LocalDate fechaHasta,
                            Long repartidorId, Integer limit);
+
+    // ─── Agenda ──────────────────────────────────────────────────────────────────
+
+    /**
+     * Devuelve la agenda del repartidor: rutas ordenadas por fecha_reparto ASC
+     * dentro del rango indicado. Defaults si null: fechaDesde=hoy, fechaHasta=hoy+30d.
+     */
+    List<AgendaRepartidorResponse> obtenerAgendaRepartidor(
+            Long repartidorId, LocalDate fechaDesde, LocalDate fechaHasta);
+    /**
+     * Devuelve la agenda global de todos los repartidores.
+     */
+    List<AgendaRepartidorResponse> obtenerAgendaGlobal(LocalDate fechaDesde, LocalDate fechaHasta);
+    /**
+     * El repartidor confirma o rechaza un turno asignado.
+     * Solo puede ejecutarlo el propietario de la ruta.
+     *
+     * @throws com.sistemagas.pedidos.exception.BusinessException si la ruta no le pertenece
+     *         o si el estado de confirmacion ya es terminal.
+     */
+    AgendaRepartidorResponse confirmarTurno(Long rutaId, ConfirmarTurnoRequest request, Usuario autenticado);
+
+    /**
+     * El admin actualiza las notas de un recorrido.
+     * Emite una notificacion WebSocket al repartidor via /user/queue/agenda.
+     */
+    AgendaRepartidorResponse actualizarNotasAdmin(Long rutaId, ActualizarNotasAdminRequest request);
 }

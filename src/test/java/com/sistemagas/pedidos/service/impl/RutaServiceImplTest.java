@@ -56,6 +56,7 @@ class RutaServiceImplTest {
     @Mock private DepositoProperties depositoProperties;
     @Mock private SupabaseStorageService supabaseStorageService;
     @Mock private TrackingService trackingService;
+    @Mock private com.sistemagas.pedidos.service.MessagePublisher messagePublisher;
 
     private RutaServiceImpl service;
 
@@ -70,7 +71,7 @@ class RutaServiceImplTest {
     void setUp() {
         service = new RutaServiceImpl(rutaRepository, rutaPedidoRepository, pedidoRepository,
                 usuarioRepository, routingService, inventarioService, depositoRepository, tipoGarrafaStockRepository, depositoProperties,
-                supabaseStorageService, trackingService);
+                supabaseStorageService, trackingService, messagePublisher);
 
         repartidorDuenio = Usuario.builder().id(10L).rol(RolUsuario.REPARTIDOR).build();
         otroRepartidor = Usuario.builder().id(20L).rol(RolUsuario.REPARTIDOR).build();

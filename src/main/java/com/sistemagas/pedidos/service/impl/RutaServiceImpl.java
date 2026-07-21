@@ -2,8 +2,13 @@ package com.sistemagas.pedidos.service.impl;
 
 import com.sistemagas.pedidos.config.DepositoProperties;
 import com.sistemagas.pedidos.dto.location.RouteResultDto;
+import com.sistemagas.pedidos.dto.realtime.AgendaNotificacionDto;
 import com.sistemagas.pedidos.dto.realtime.EventoRutaWsDto;
+import com.sistemagas.pedidos.dto.realtime.WsDestinations;
+import com.sistemagas.pedidos.dto.request.ActualizarNotasAdminRequest;
 import com.sistemagas.pedidos.dto.request.ActualizarParadaRequest;
+import com.sistemagas.pedidos.dto.request.ConfirmarTurnoRequest;
+import com.sistemagas.pedidos.dto.response.AgendaRepartidorResponse;
 import com.sistemagas.pedidos.dto.response.ClienteDeliveryResponse;
 import com.sistemagas.pedidos.dto.response.ClienteResumenResponse;
 import com.sistemagas.pedidos.dto.response.DeliveryDetalleResponse;
@@ -14,31 +19,33 @@ import com.sistemagas.pedidos.dto.response.ParadaResumenResponse;
 import com.sistemagas.pedidos.dto.response.PedidoResumenResponse;
 import com.sistemagas.pedidos.dto.response.RutaReprogramadaResponse;
 import com.sistemagas.pedidos.dto.response.UsuarioResumenRepartidor;
+import com.sistemagas.pedidos.enums.ConfirmacionRepartidor;
 import com.sistemagas.pedidos.enums.EstadoEntrega;
 import com.sistemagas.pedidos.enums.EstadoPedido;
 import com.sistemagas.pedidos.enums.EstadoRuta;
 import com.sistemagas.pedidos.exception.BusinessException;
 import com.sistemagas.pedidos.exception.ResourceNotFoundException;
 import com.sistemagas.pedidos.model.Cliente;
+import com.sistemagas.pedidos.model.Deposito;
 import com.sistemagas.pedidos.model.Pedido;
 import com.sistemagas.pedidos.model.PedidoDetalle;
 import com.sistemagas.pedidos.model.Ruta;
 import com.sistemagas.pedidos.model.RutaPedido;
+import com.sistemagas.pedidos.model.TipoGarrafaStock;
 import com.sistemagas.pedidos.model.Usuario;
+import com.sistemagas.pedidos.repository.DepositoRepository;
 import com.sistemagas.pedidos.repository.PedidoRepository;
 import com.sistemagas.pedidos.repository.RutaPedidoRepository;
 import com.sistemagas.pedidos.repository.RutaRepository;
+import com.sistemagas.pedidos.repository.TipoGarrafaStockRepository;
 import com.sistemagas.pedidos.repository.UsuarioRepository;
+import com.sistemagas.pedidos.service.InventarioService;
+import com.sistemagas.pedidos.service.MessagePublisher;
 import com.sistemagas.pedidos.service.RoutingService;
 import com.sistemagas.pedidos.service.RutaService;
 import com.sistemagas.pedidos.service.SupabaseStorageService;
 import com.sistemagas.pedidos.service.TrackingService;
 import com.sistemagas.pedidos.dto.request.VentaStockRequest;
-import com.sistemagas.pedidos.service.InventarioService;
-import com.sistemagas.pedidos.repository.DepositoRepository;
-import com.sistemagas.pedidos.repository.TipoGarrafaStockRepository;
-import com.sistemagas.pedidos.model.Deposito;
-import com.sistemagas.pedidos.model.TipoGarrafaStock;
 import com.sistemagas.pedidos.util.Constantes;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -49,6 +56,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -75,6 +84,7 @@ public class RutaServiceImpl implements RutaService {
     private final DepositoProperties depositoProperties;
     private final SupabaseStorageService supabaseStorageService;
     private final TrackingService trackingService;
+    private final MessagePublisher messagePublisher;
 
     /**
      * Mapa de transiciones permitidas para {@link EstadoRuta}.
@@ -103,7 +113,11 @@ public class RutaServiceImpl implements RutaService {
 
     @Override
     @Transactional
-    public Ruta planificarRuta(Long repartidorId, List<Long> pedidosIds) {
+    public Ruta planificarRuta(Long repartidorId, List<Long> pedidosIds, LocalDate fechaReparto) {
+        if (fechaReparto != null && fechaReparto.isBefore(LocalDate.now())) {
+            throw new BusinessException("La fecha de reparto no puede ser en el pasado", org.springframework.http.HttpStatus.BAD_REQUEST, "FECHA_INVALIDA");
+        }
+
         Usuario repartidor = usuarioRepository.findById(repartidorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Repartidor no encontrado"));
 
@@ -117,7 +131,7 @@ public class RutaServiceImpl implements RutaService {
 
         // 2. Armar la Ruta maestra
         Ruta nuevaRuta = Ruta.builder()
-                .fechaReparto(LocalDate.now())
+                .fechaReparto(fechaReparto != null ? fechaReparto : LocalDate.now())
                 .repartidor(repartidor)
                 .origenLat(depositoLat())
                 .origenLng(depositoLng())
@@ -145,8 +159,14 @@ public class RutaServiceImpl implements RutaService {
             nuevaRuta.agregarParada(parada);
         }
 
-        // Guardará en cascada ruta_pedidos y se actualizan los estados de pedidos
-        return rutaRepository.save(nuevaRuta);
+        // Guarda en cascada ruta_pedidos y actualiza los estados de pedidos
+        Ruta rutaGuardada = rutaRepository.save(nuevaRuta);
+
+        // Notificar al repartidor via WebSocket de la nueva asignacion
+        emitirNotificacionAgenda(rutaGuardada, "NUEVA_RUTA_ASIGNADA",
+                "Se te asigno un recorrido para el " + rutaGuardada.getFechaReparto());
+
+        return rutaGuardada;
     }
 
     @Override
@@ -565,5 +585,175 @@ public class RutaServiceImpl implements RutaService {
                 .nombre(repartidor.getNombre())
                 .email(repartidor.getEmail())
                 .build();
+    }
+
+    // ─── Agenda ──────────────────────────────────────────────────────────────────
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AgendaRepartidorResponse> obtenerAgendaRepartidor(
+            Long repartidorId, LocalDate fechaDesde, LocalDate fechaHasta) {
+
+        LocalDate desde = (fechaDesde != null) ? fechaDesde : LocalDate.now();
+        LocalDate hasta = (fechaHasta != null) ? fechaHasta : LocalDate.now().plusDays(30);
+
+        List<Ruta> rutas = rutaRepository.findAgendaByRepartidorId(repartidorId, desde, hasta);
+        return rutas.stream().map(this::mapToAgendaResponse).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AgendaRepartidorResponse> obtenerAgendaGlobal(LocalDate fechaDesde, LocalDate fechaHasta) {
+        LocalDate desde = (fechaDesde != null) ? fechaDesde : LocalDate.now();
+        LocalDate hasta = (fechaHasta != null) ? fechaHasta : LocalDate.now().plusDays(30);
+
+        // Fetch all routes in the date range, using pageable to prevent huge result sets if not necessary
+        List<Ruta> rutas = rutaRepository.findByFechaRepartoBetween(desde, hasta, PageRequest.of(0, 1000));
+        return rutas.stream().map(this::mapToAgendaResponse).toList();
+    }
+
+    @Override
+    @Transactional
+    public AgendaRepartidorResponse confirmarTurno(
+            Long rutaId, ConfirmarTurnoRequest request, Usuario autenticado) {
+
+        Ruta ruta = rutaRepository.findById(rutaId)
+                .orElseThrow(() -> new ResourceNotFoundException("Ruta no encontrada"));
+
+        // Solo el repartidor propietario puede confirmar
+        if (!ruta.getRepartidor().getId().equals(autenticado.getId())) {
+            throw new BusinessException(
+                    "No puedes confirmar o rechazar turnos de otro repartidor",
+                    HttpStatus.FORBIDDEN, "RUTA_NO_PROPIA");
+        }
+
+        ConfirmacionRepartidor decision = request.getConfirmacion();
+        if (decision == null) {
+            throw new BusinessException(
+                    "La confirmacion es obligatoria", HttpStatus.BAD_REQUEST, "CONFIRMACION_REQUERIDA");
+        }
+        // CONFIRMADO y RECHAZADO son los unicos valores permitidos en este endpoint
+        if (decision == ConfirmacionRepartidor.PENDIENTE) {
+            throw new BusinessException(
+                    "No puedes establecer el estado PENDIENTE manualmente",
+                    HttpStatus.BAD_REQUEST, "CONFIRMACION_INVALIDA");
+        }
+        if (decision == ConfirmacionRepartidor.RECHAZADO
+                && (request.getMotivoRechazo() == null || request.getMotivoRechazo().isBlank())) {
+            throw new BusinessException(
+                    "El motivo de rechazo es obligatorio al rechazar un turno",
+                    HttpStatus.BAD_REQUEST, "MOTIVO_RECHAZO_REQUERIDO");
+        }
+
+        ruta.setConfirmacionRepartidor(decision);
+        ruta.setFechaConfirmacion(OffsetDateTime.now(ZoneOffset.UTC));
+        ruta.setMotivoRechazo(
+                decision == ConfirmacionRepartidor.RECHAZADO ? request.getMotivoRechazo() : null);
+
+        if (decision == ConfirmacionRepartidor.RECHAZADO) {
+            EstadoRuta estadoAnterior = ruta.getEstado();
+            ruta.setEstado(EstadoRuta.CANCELADA);
+            
+            if (ruta.getParadas() != null) {
+                for (RutaPedido parada : ruta.getParadas()) {
+                    parada.setEstadoEntrega(EstadoEntrega.FALLIDO);
+                    parada.setMotivoFallo("Ruta rechazada: " + request.getMotivoRechazo());
+                    
+                    Pedido ped = parada.getPedido();
+                    if (ped != null) {
+                        ped.setEstado(EstadoPedido.REPROGRAMADO);
+                        pedidoRepository.save(ped);
+                    }
+                    rutaPedidoRepository.save(parada);
+                }
+            }
+
+            trackingService.emitirEventoRuta(
+                    ruta,
+                    estadoAnterior,
+                    EventoRutaWsDto.builder()
+                            .tipo("CAMBIO_ESTADO_RUTA")
+                            .estadoAnterior(estadoAnterior)
+                            .estadoNuevo(EstadoRuta.CANCELADA)
+                            .mensaje("Ruta " + ruta.getId() + " cancelada automáticamente por rechazo del repartidor")
+                            .build());
+        }
+
+        return mapToAgendaResponse(rutaRepository.save(ruta));
+    }
+
+    @Override
+    @Transactional
+    public AgendaRepartidorResponse actualizarNotasAdmin(Long rutaId, ActualizarNotasAdminRequest request) {
+        Ruta ruta = rutaRepository.findById(rutaId)
+                .orElseThrow(() -> new ResourceNotFoundException("Ruta no encontrada"));
+
+        ruta.setNotasAdmin(request.getNotasAdmin());
+        Ruta rutaGuardada = rutaRepository.save(ruta);
+
+        // Notificar al repartidor via WebSocket
+        emitirNotificacionAgenda(rutaGuardada, "NOTAS_ACTUALIZADAS",
+                "El administrador actualizo las notas de tu recorrido del "
+                        + rutaGuardada.getFechaReparto());
+
+        return mapToAgendaResponse(rutaGuardada);
+    }
+
+    /** Construye un AgendaRepartidorResponse liviano a partir de una Ruta cargada con sus paradas. */
+    private AgendaRepartidorResponse mapToAgendaResponse(Ruta ruta) {
+        List<RutaPedido> paradas = ruta.getParadas() != null ? ruta.getParadas() : List.of();
+
+        int entregadas = (int) paradas.stream()
+                .filter(p -> p.getEstadoEntrega() == EstadoEntrega.ENTREGADO).count();
+        int fallidas = (int) paradas.stream()
+                .filter(p -> p.getEstadoEntrega() == EstadoEntrega.FALLIDO).count();
+        int pendientes = (int) paradas.stream()
+                .filter(p -> p.getEstadoEntrega() == EstadoEntrega.PENDIENTE).count();
+
+        return AgendaRepartidorResponse.builder()
+                .rutaId(ruta.getId())
+                .repartidorId(ruta.getRepartidor() != null ? ruta.getRepartidor().getId() : null)
+                .fechaReparto(ruta.getFechaReparto())
+                .estado(ruta.getEstado())
+                .cantidadParadas(paradas.size())
+                .paradasEntregadas(entregadas)
+                .paradasFallidas(fallidas)
+                .paradasPendientes(pendientes)
+                .notasAdmin(ruta.getNotasAdmin())
+                .confirmacionRepartidor(ruta.getConfirmacionRepartidor())
+                .distanciaTotalM(ruta.getDistanciaTotalM())
+                .duracionTotalS(ruta.getDuracionTotalS())
+                .build();
+    }
+
+    /**
+     * Emite una notificacion de agenda al repartidor dueno de la ruta
+     * via STOMP /user/queue/agenda. Fallo silencioso: no interrumpe la TX principal.
+     */
+    private void emitirNotificacionAgenda(Ruta ruta, String tipo, String mensaje) {
+        if (ruta.getRepartidor() == null || ruta.getRepartidor().getEmail() == null) {
+            log.warn("No se pudo emitir notificacion de agenda para ruta {}: repartidor sin email",
+                    ruta.getId());
+            return;
+        }
+        try {
+            AgendaNotificacionDto notificacion = AgendaNotificacionDto.builder()
+                    .tipo(tipo)
+                    .rutaId(ruta.getId())
+                    .fechaReparto(ruta.getFechaReparto())
+                    .repartidorId(ruta.getRepartidor().getId())
+                    .mensaje(mensaje)
+                    .timestamp(Instant.now())
+                    .build();
+            messagePublisher.publishToUser(
+                    ruta.getRepartidor().getEmail(),
+                    WsDestinations.USER_QUEUE_AGENDA,
+                    notificacion);
+            log.debug("Notificacion de agenda ({}) emitida para repartidor {} (ruta {})",
+                    tipo, ruta.getRepartidor().getEmail(), ruta.getId());
+        } catch (Exception ex) {
+            log.warn("Fallo al emitir notificacion WS de agenda para ruta {}: {}",
+                    ruta.getId(), ex.getMessage());
+        }
     }
 }

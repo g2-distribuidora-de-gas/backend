@@ -1,7 +1,10 @@
 package com.sistemagas.pedidos.controller;
 
+import com.sistemagas.pedidos.dto.request.ActualizarNotasAdminRequest;
 import com.sistemagas.pedidos.dto.request.ActualizarParadaRequest;
+import com.sistemagas.pedidos.dto.request.ConfirmarTurnoRequest;
 import com.sistemagas.pedidos.dto.request.RutaPlanificarRequest;
+import com.sistemagas.pedidos.dto.response.AgendaRepartidorResponse;
 import com.sistemagas.pedidos.dto.response.ClienteResponse;
 import com.sistemagas.pedidos.dto.response.DeliveryReadOnlyResponse;
 import com.sistemagas.pedidos.dto.response.RutaPedidoResponse;
@@ -39,20 +42,23 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/rutas")
 @RequiredArgsConstructor
-@Tag(name = "Rutas", description = "Planificacion y seguimiento de rutas de reparto")
+@Tag(name = "Rutas", description = "Planificacion, seguimiento y agenda de rutas de reparto")
 public class RutaController {
 
     private final RutaService rutaService;
     private final AuthenticationHelper authenticationHelper;
 
+    // ─── Rutas existentes ────────────────────────────────────────────────────────
+
     @PostMapping("/planificar")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     @Operation(summary = "Planificar una nueva ruta de reparto",
             description = "Crea una ruta asignando un listado de pedidos a un repartidor. " +
-                    "Calcula el orden optimo y la distancia/duracion total usando el proveedor de routing configurado.")
+                    "Calcula el orden optimo y la distancia/duracion total usando el proveedor de routing configurado. " +
+                    "Emite una notificacion WebSocket al repartidor asignado.")
     public ResponseEntity<RutaResponse> planificarRuta(
             @Valid @RequestBody RutaPlanificarRequest request) {
-        Ruta ruta = rutaService.planificarRuta(request.getRepartidorId(), request.getPedidosIds());
+        Ruta ruta = rutaService.planificarRuta(request.getRepartidorId(), request.getPedidosIds(), request.getFechaReparto());
         return new ResponseEntity<>(mapToResponse(ruta), HttpStatus.CREATED);
     }
 
@@ -105,10 +111,13 @@ public class RutaController {
                     "optimizado para la app del repartidor (sin campos administrativos). " +
                     "Un REPARTIDOR solo puede consultar paradas de sus propias rutas.")
     @ApiResponses({
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Pedido devuelto en formato DeliveryReadOnlyResponse",
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200",
+                    description = "Pedido devuelto en formato DeliveryReadOnlyResponse",
                     content = @Content(schema = @Schema(implementation = DeliveryReadOnlyResponse.class))),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "La parada pertenece a una ruta de otro repartidor"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "La parada no existe")
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403",
+                    description = "La parada pertenece a una ruta de otro repartidor"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404",
+                    description = "La parada no existe")
     })
     public ResponseEntity<DeliveryReadOnlyResponse> obtenerPedidoDeParada(
             @Parameter(description = "ID de la parada (RutaPedido)", example = "10") @PathVariable Long rutaPedidoId) {
@@ -121,8 +130,8 @@ public class RutaController {
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     @Operation(summary = "Reporte de rutas REPROGRAMADAS con detalle de fallos",
             description = "Lista las rutas en estado REPROGRAMADA con el detalle de cada parada fallida "
-                    + "(motivo, cliente, pedido, cantidades). Útil para análisis operativo y "
-                    + "planificación de reintentos.")
+                    + "(motivo, cliente, pedido, cantidades). Util para analisis operativo y "
+                    + "planificacion de reintentos.")
     public ResponseEntity<List<RutaReprogramadaResponse>> listarReprogramadas(
             @Parameter(description = "Fecha minima de reparto (inclusive). Default: hace 30 dias.",
                     example = "2026-06-15")
@@ -130,7 +139,7 @@ public class RutaController {
             @Parameter(description = "Fecha maxima de reparto (inclusive). Default: hoy.",
                     example = "2026-07-15")
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta,
-            @Parameter(description = "Filtro opcional por repartidor dueño de la ruta", example = "5")
+            @Parameter(description = "Filtro opcional por repartidor dueno de la ruta", example = "5")
             @RequestParam(required = false) Long repartidorId,
             @Parameter(description = "Filtro opcional por updatedAt >= este instante (ISO-8601)",
                     example = "2026-07-01T00:00:00Z")
@@ -165,13 +174,109 @@ public class RutaController {
             @Parameter(description = "Fecha maxima de reparto (inclusive). Default: hoy.",
                     example = "2026-07-15")
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta,
-            @Parameter(description = "Filtro opcional por repartidor dueño de la ruta", example = "5")
+            @Parameter(description = "Filtro opcional por repartidor dueno de la ruta", example = "5")
             @RequestParam(required = false) Long repartidorId,
             @Parameter(description = "Cantidad maxima de rutas a retornar (1-1000)", example = "100")
             @RequestParam(required = false, defaultValue = "100") @Min(1) @Max(1000) Integer limit) {
         List<Ruta> rutas = rutaService.listarTodas(fechaDesde, fechaHasta, repartidorId, limit);
         return ResponseEntity.ok(rutas.stream().map(this::mapToResponse).toList());
     }
+
+    // ─── Endpoints de Agenda ─────────────────────────────────────────────────────
+
+    @GetMapping("/agenda")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    @Operation(
+            summary = "Agenda global de repartidores",
+            description = "Devuelve los recorridos asignados a todos los repartidores. " +
+                    "Defaults si no se envian fechas: fechaDesde=hoy, fechaHasta=hoy+30d.")
+    public ResponseEntity<List<AgendaRepartidorResponse>> obtenerAgendaGlobal(
+            @Parameter(description = "Inicio del rango (inclusive). Default: hoy.", example = "2026-07-21")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
+            @Parameter(description = "Fin del rango (inclusive). Default: hoy+30d.", example = "2026-08-20")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta) {
+        return ResponseEntity.ok(rutaService.obtenerAgendaGlobal(fechaDesde, fechaHasta));
+    }
+
+    @GetMapping("/agenda/{repartidorId}")
+    @PreAuthorize("hasAnyRole('REPARTIDOR', 'ADMIN', 'SUPER_ADMIN')")
+    @Operation(
+            summary = "Agenda del repartidor",
+            description = "Devuelve los recorridos asignados al repartidor ordenados por fecha ASC. " +
+                    "Un REPARTIDOR solo puede consultar su propia agenda. " +
+                    "Defaults si no se envian fechas: fechaDesde=hoy, fechaHasta=hoy+30d.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200",
+                    description = "Lista de entradas de agenda (puede estar vacia)",
+                    content = @Content(schema = @Schema(implementation = AgendaRepartidorResponse.class))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403",
+                    description = "El REPARTIDOR intento ver la agenda de otro repartidor")
+    })
+    public ResponseEntity<List<AgendaRepartidorResponse>> obtenerAgenda(
+            @Parameter(description = "ID del repartidor", example = "5") @PathVariable Long repartidorId,
+            @Parameter(description = "Inicio del rango (inclusive). Default: hoy.", example = "2026-07-21")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
+            @Parameter(description = "Fin del rango (inclusive). Default: hoy+30d.", example = "2026-08-20")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta) {
+
+        Usuario autenticado = authenticationHelper.getUsuarioAutenticado();
+        if (autenticado.getRol().name().equals("REPARTIDOR")
+                && !autenticado.getId().equals(repartidorId)) {
+            throw new BusinessException(
+                    "No puedes ver la agenda de otro repartidor",
+                    HttpStatus.FORBIDDEN,
+                    "AGENDA_NO_AUTORIZADA");
+        }
+
+        return ResponseEntity.ok(
+                rutaService.obtenerAgendaRepartidor(repartidorId, fechaDesde, fechaHasta));
+    }
+
+    @PatchMapping("/{rutaId}/confirmar")
+    @PreAuthorize("hasRole('REPARTIDOR')")
+    @Operation(
+            summary = "Confirmar o rechazar un turno asignado",
+            description = "El repartidor acepta (CONFIRMADO) o rechaza (RECHAZADO) un recorrido asignado. " +
+                    "El rechazo requiere motivoRechazo. Solo puede ejecutarlo el repartidor propietario.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200",
+                    description = "Confirmacion registrada correctamente",
+                    content = @Content(schema = @Schema(implementation = AgendaRepartidorResponse.class))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400",
+                    description = "Datos invalidos (ej: rechazo sin motivo)"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403",
+                    description = "La ruta pertenece a otro repartidor"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404",
+                    description = "Ruta no encontrada")
+    })
+    public ResponseEntity<AgendaRepartidorResponse> confirmarTurno(
+            @Parameter(description = "ID de la ruta a confirmar", example = "42") @PathVariable Long rutaId,
+            @Valid @RequestBody ConfirmarTurnoRequest request) {
+        Usuario autenticado = authenticationHelper.getUsuarioAutenticado();
+        return ResponseEntity.ok(rutaService.confirmarTurno(rutaId, request, autenticado));
+    }
+
+    @PatchMapping("/{rutaId}/notas-admin")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    @Operation(
+            summary = "Actualizar notas del administrador en un recorrido",
+            description = "El administrador agrega o edita las notas de contexto de un recorrido. " +
+                    "El repartidor vera estas notas en su agenda. " +
+                    "Emite una notificacion WebSocket al repartidor al guardar.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200",
+                    description = "Notas actualizadas y notificacion enviada",
+                    content = @Content(schema = @Schema(implementation = AgendaRepartidorResponse.class))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404",
+                    description = "Ruta no encontrada")
+    })
+    public ResponseEntity<AgendaRepartidorResponse> actualizarNotasAdmin(
+            @Parameter(description = "ID de la ruta", example = "42") @PathVariable Long rutaId,
+            @Valid @RequestBody ActualizarNotasAdminRequest request) {
+        return ResponseEntity.ok(rutaService.actualizarNotasAdmin(rutaId, request));
+    }
+
+    // ─── Mappers privados ────────────────────────────────────────────────────────
 
     private RutaResponse mapToResponse(Ruta ruta) {
         return RutaResponse.builder()

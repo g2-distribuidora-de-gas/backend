@@ -1,5 +1,6 @@
 package com.sistemagas.pedidos.model;
 
+import com.sistemagas.pedidos.enums.ConfirmacionRepartidor;
 import com.sistemagas.pedidos.enums.EstadoRuta;
 import com.sistemagas.pedidos.model.base.Auditable;
 import jakarta.persistence.*;
@@ -8,6 +9,7 @@ import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -52,6 +54,29 @@ public class Ruta extends Auditable {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     private EstadoRuta estado;
+
+    // ─── Campos de Agenda ────────────────────────────────────────────────────────
+
+    /** Notas del administrador visibles para el repartidor (contexto del recorrido). */
+    @Column(name = "notas_admin", columnDefinition = "TEXT")
+    private String notasAdmin;
+
+    /**
+     * Estado de confirmacion del repartidor para este turno.
+     * Por defecto PENDIENTE al crear la ruta.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "confirmacion_repartidor", length = 20, nullable = false)
+    @Builder.Default
+    private ConfirmacionRepartidor confirmacionRepartidor = ConfirmacionRepartidor.PENDIENTE;
+
+    /** Instante en que el repartidor confirmo o rechazo el turno. */
+    @Column(name = "fecha_confirmacion")
+    private OffsetDateTime fechaConfirmacion;
+
+    /** Motivo opcional cuando el repartidor rechaza el turno asignado. */
+    @Column(name = "motivo_rechazo")
+    private String motivoRechazo;
 
     @OneToMany(mappedBy = "ruta", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default

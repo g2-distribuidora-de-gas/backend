@@ -15,4 +15,10 @@ public class StompMessagePublisher implements MessagePublisher {
     public void publish(String destination, Object payload) {
         messagingTemplate.convertAndSend(destination, payload);
     }
+
+    @Override
+    public void publishToUser(String user, String destination, Object payload) {
+        messagingTemplate.convertAndSendToUser(user, destination, payload);
+    }
 }
+
