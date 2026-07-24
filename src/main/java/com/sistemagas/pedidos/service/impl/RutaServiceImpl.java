@@ -214,6 +214,16 @@ public class RutaServiceImpl implements RutaService {
             }
         }
 
+        // Auto-iniciar la ruta si aún está PLANIFICADA (Bug #2: sin este paso,
+        // la transición final PLANIFICADA → COMPLETADA/REPROGRAMADA no está
+        // permitida en TRANSICIONES_RUTA y la ruta queda colgada).
+        Ruta ruta = parada.getRuta();
+        if (ruta.getEstado() == EstadoRuta.PLANIFICADA) {
+            ruta.setEstado(EstadoRuta.EN_CURSO);
+            rutaRepository.save(ruta);
+            log.debug("Ruta {} auto-iniciada (PLANIFICADA → EN_CURSO) al procesar la primera parada", ruta.getId());
+        }
+
         EstadoEntrega actual = parada.getEstadoEntrega();
         if (actual != EstadoEntrega.PENDIENTE) {
             throw new BusinessException(
@@ -281,7 +291,6 @@ public class RutaServiceImpl implements RutaService {
         pedidoRepository.save(pedido);
 
         // Verificar si la ruta entera fue procesada (todas las paradas resueltas)
-        Ruta ruta = parada.getRuta();
 
         trackingService.emitirEventoRuta(
                 ruta,

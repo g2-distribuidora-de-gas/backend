@@ -2,6 +2,7 @@ package com.sistemagas.pedidos.exception.handler;
 
 import com.sistemagas.pedidos.dto.response.ApiResponse;
 import com.sistemagas.pedidos.exception.BusinessException;
+import com.sistemagas.pedidos.exception.StockInsuficienteException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -34,6 +35,25 @@ public class GlobalExceptionHandler {
                 .build();
 
         return ResponseEntity.status(ex.getStatus()).body(response);
+    }
+
+    @ExceptionHandler(StockInsuficienteException.class)
+    public ResponseEntity<ApiResponse<Map<String, Object>>> handleStockInsuficiente(
+            StockInsuficienteException ex) {
+        log.warn("Stock insuficiente: {}", ex.getMessage());
+
+        Map<String, Object> errorData = new HashMap<>();
+        errorData.put("codigo", "STOCK_INSUFICIENTE");
+        errorData.put("status", HttpStatus.CONFLICT.value());
+
+        ApiResponse<Map<String, Object>> response = ApiResponse.<Map<String, Object>>builder()
+                .exito(false)
+                .mensaje(ex.getMessage())
+                .data(errorData)
+                .timestamp(Instant.now())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
