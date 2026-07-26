@@ -129,6 +129,14 @@ public class DepositoServiceImpl implements DepositoService {
             Usuario repartidor = usuarioRepository.findById(request.getRepartidorId())
                     .orElseThrow(() -> new ResourceNotFoundException(
                             "Usuario repartidor no encontrado: id=" + request.getRepartidorId()));
+            
+            depositoRepository.findByRepartidorIdAndActivoTrue(repartidor.getId())
+                    .ifPresent(camionAsignado -> {
+                        if (deposito.getId() == null || !camionAsignado.getId().equals(deposito.getId())) {
+                            throw new BusinessException("El repartidor ya tiene el camión '" + camionAsignado.getNombre() + "' asignado");
+                        }
+                    });
+
             deposito.setRepartidor(repartidor);
         } else {
             deposito.setRepartidor(null);
